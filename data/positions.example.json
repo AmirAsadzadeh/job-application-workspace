@@ -1,0 +1,9 @@
+{
+  "version": 6,
+  "listView": {
+    "mode": "column",
+    "column": "status",
+    "direction": "asc"
+  },
+  "positions": []
+}

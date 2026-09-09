@@ -1,0 +1,119 @@
+openapi: 3.1.0
+info:
+  title: Position Manual Order Contract
+  version: 1.0.0
+paths:
+  /api/positions/order:
+    patch:
+      summary: Move one position within the saved Manual order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderPositionInput'
+      responses:
+        '200':
+          description: The move was saved and the complete Manual order is returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [positions]
+                properties:
+                  positions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PositionSummary'
+        '400':
+          description: The request shape or relationship between IDs is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The source or non-null anchor position no longer exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: The local file could not be replaced; its previous contents remain unchanged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    ReorderPositionInput:
+      type: object
+      additionalProperties: false
+      required: [positionId, beforePositionId]
+      properties:
+        positionId:
+          type: string
+          minLength: 1
+        beforePositionId:
+          oneOf:
+            - type: string
+              minLength: 1
+            - type: 'null'
+    PositionSummary:
+      type: object
+      additionalProperties: false
+      required: [id, company, title, status, workMode, seniority, updatedAt]
+      properties:
+        id:
+          type: string
+          minLength: 1
+        company:
+          type: object
+          additionalProperties: false
+          required: [name, logoPath, logoUrl]
+          properties:
+            name:
+              type: string
+              minLength: 1
+            logoPath:
+              type: [string, 'null']
+            logoUrl:
+              type: [string, 'null']
+              format: uri
+        title:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum: [draft, open, interviewing, on_hold, closed]
+        workMode:
+          type: string
+          enum: [remote, hybrid, onsite]
+        seniority:
+          type: string
+          enum: [Intern, Entry, Associate, Mid-level, Senior, Staff, Lead, Manager, Director]
+        updatedAt:
+          type: string
+          format: date-time
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [REORDER_INVALID, LIST_VIEW_INVALID, POSITION_NOT_FOUND, POSITION_WRITE_FAILED]
+            message:
+              type: string
+            issues:
+              type: array
+              items:
+                type: object
+                required: [path, message]
+                properties:
+                  path:
+                    type: string
+                  message:
+                    type: string

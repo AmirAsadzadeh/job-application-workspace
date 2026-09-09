@@ -1,0 +1,47 @@
+{
+  "name": "job-positions",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch server/index.ts",
+    "build": "tsc -b && tsc -p tsconfig.server.json && vite build --configLoader native",
+    "start": "tsx server/index.ts --production",
+    "preview": "tsx server/index.ts --production",
+    "test": "vitest run --configLoader native",
+    "test:watch": "vitest --configLoader native",
+    "test:performance": "vitest run --configLoader native server/positionsPerformance.test.ts src/features/positions/components/PositionList.performance.test.tsx"
+  },
+  "dependencies": {
+    "@archiver/archiver": "^0.2.0",
+    "@dnd-kit/dom": "^0.5.0",
+    "@dnd-kit/helpers": "^0.5.0",
+    "@dnd-kit/react": "^0.5.0",
+    "@tiptap/extension-code-block-lowlight": "^3.31.3",
+    "@tiptap/pm": "^3.31.3",
+    "@tiptap/react": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
+    "@vitejs/plugin-react": "^5.0.0",
+    "csv-stringify": "^6.8.3",
+    "file-type": "^22.0.2",
+    "lowlight": "^3.3.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.8.0",
+    "vite": "^7.0.0",
+    "yauzl": "^3.4.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^26.4.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@types/yauzl": "^3.4.0",
+    "jsdom": "^29.1.1",
+    "tsx": "^4.23.13",
+    "vitest": "^5.0.0"
+  }
+}

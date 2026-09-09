@@ -1,0 +1,363 @@
+openapi: 3.1.0
+info:
+  title: Create Position Contract
+  version: 1.0.0
+paths:
+  /api/positions:
+    post:
+      operationId: createPosition
+      summary: Create a Draft position in the local positions document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePositionInput'
+      responses:
+        '201':
+          description: Position created and prepended successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [position]
+                properties:
+                  position:
+                    $ref: '#/components/schemas/Position'
+        '400':
+          description: Submitted values are invalid or inconsistent with reference data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '413':
+          description: The decoded logo or bounded request body is too large.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Local data was unavailable, invalid, or could not be written.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    CreatePositionInput:
+      type: object
+      additionalProperties: false
+      required: [companyName, companyLogo, title, workMode, seniority, departmentId, teamId, locationId, hiringManager, salary, jobPlatformLinks, careerPageUrl, description]
+      properties:
+        companyName:
+          type: string
+          minLength: 1
+        companyLogo:
+          $ref: '#/components/schemas/CompanyLogoInput'
+        title:
+          type: string
+          minLength: 1
+        workMode:
+          type: string
+          enum: [remote, hybrid, onsite]
+        seniority:
+          $ref: '#/components/schemas/Seniority'
+        employmentType:
+          type: string
+          enum: [full_time, part_time, contract, internship]
+          default: full_time
+        departmentId:
+          type: [string, 'null']
+        teamId:
+          type: [string, 'null']
+        locationId:
+          type: [string, 'null']
+        hiringManager:
+          $ref: '#/components/schemas/HiringManager'
+        salary:
+          oneOf:
+            - $ref: '#/components/schemas/Salary'
+            - type: 'null'
+        jobPlatformLinks:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobPlatformLink'
+        careerPageUrl:
+          type: [string, 'null']
+          format: uri
+          pattern: '^https?://'
+        description:
+          $ref: '#/components/schemas/RichTextDocument'
+    CompanyLogoInput:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [kind]
+          properties:
+            kind: { const: none }
+        - type: object
+          additionalProperties: false
+          required: [kind, url]
+          properties:
+            kind: { const: remote }
+            url: { type: string, format: uri, pattern: '^https?://' }
+        - type: object
+          additionalProperties: false
+          required: [kind, fileName, mediaType, dataBase64]
+          properties:
+            kind: { const: upload }
+            fileName: { type: string, minLength: 1 }
+            mediaType: { type: string, enum: [image/png, image/jpeg, image/svg+xml] }
+            dataBase64:
+              type: string
+              contentEncoding: base64
+              maxLength: 2796204
+              description: Decodes to at most 2 MB; decoded bytes must match the declared PNG, JPEG, or SVG media type.
+    Position:
+      type: object
+      additionalProperties: false
+      required: [id, company, title, status, workMode, employmentType, seniority, departmentId, teamId, locationId, hiringManager, salary, description, jobPlatformLinks, careerPageUrl, createdAt, updatedAt]
+      properties:
+        id: { type: string, minLength: 1 }
+        company:
+          $ref: '#/components/schemas/Company'
+        title: { type: string, minLength: 1 }
+        status: { type: string, enum: [draft, open, interviewing, on_hold, closed] }
+        workMode: { type: string, enum: [remote, hybrid, onsite] }
+        employmentType: { type: string, enum: [full_time, part_time, contract, internship] }
+        seniority:
+          $ref: '#/components/schemas/Seniority'
+        departmentId: { type: [string, 'null'] }
+        teamId: { type: [string, 'null'] }
+        locationId: { type: [string, 'null'] }
+        hiringManager:
+          $ref: '#/components/schemas/HiringManager'
+        salary:
+          oneOf:
+            - $ref: '#/components/schemas/Salary'
+            - type: 'null'
+        description:
+          $ref: '#/components/schemas/RichTextDocument'
+        jobPlatformLinks:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobPlatformLink'
+        careerPageUrl: { type: [string, 'null'], format: uri, pattern: '^https?://' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Company:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [name, logoPath, logoUrl]
+          properties:
+            name: { type: string, minLength: 1 }
+            logoPath: { type: string, pattern: '^/company-logos/[^/\\]+$' }
+            logoUrl: { type: 'null' }
+        - type: object
+          additionalProperties: false
+          required: [name, logoPath, logoUrl]
+          properties:
+            name: { type: string, minLength: 1 }
+            logoPath: { type: 'null' }
+            logoUrl: { type: string, format: uri, pattern: '^https?://' }
+        - type: object
+          additionalProperties: false
+          required: [name, logoPath, logoUrl]
+          properties:
+            name: { type: string, minLength: 1 }
+            logoPath: { type: 'null' }
+            logoUrl: { type: 'null' }
+    Seniority:
+      type: string
+      enum: [Intern, Entry, Associate, Mid-level, Senior, Staff, Lead, Manager, Director]
+    HiringManager:
+      type: object
+      additionalProperties: false
+      required: [name, phone, position]
+      properties:
+        name: { type: string }
+        phone: { type: string }
+        position: { type: string }
+    Salary:
+      type: object
+      additionalProperties: false
+      required: [min, max, currency]
+      properties:
+        min: { type: number, minimum: 0 }
+        max: { type: number, minimum: 0 }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+    JobPlatformLink:
+      type: object
+      additionalProperties: false
+      required: [platformName, url]
+      properties:
+        platformName: { type: string, minLength: 1 }
+        url: { type: string, format: uri, pattern: '^https?://' }
+    RichTextDocument:
+      type: object
+      additionalProperties: false
+      required: [type, content]
+      properties:
+        type: { type: string, const: doc }
+        content:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/RichTextBlockNode'
+    RichTextBlockNode:
+      oneOf:
+        - $ref: '#/components/schemas/ParagraphNode'
+        - $ref: '#/components/schemas/HeadingNode'
+        - $ref: '#/components/schemas/BulletListNode'
+        - $ref: '#/components/schemas/OrderedListNode'
+    RichTextInlineNode:
+      oneOf:
+        - $ref: '#/components/schemas/TextNode'
+        - $ref: '#/components/schemas/HardBreakNode'
+    ParagraphNode:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type: { type: string, const: paragraph }
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/RichTextInlineNode'
+    HeadingNode:
+      type: object
+      additionalProperties: false
+      required: [type, attrs]
+      properties:
+        type: { type: string, const: heading }
+        attrs:
+          type: object
+          additionalProperties: false
+          required: [level]
+          properties:
+            level: { type: integer, enum: [1, 2, 3] }
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/RichTextInlineNode'
+    BulletListNode:
+      type: object
+      additionalProperties: false
+      required: [type, content]
+      properties:
+        type: { type: string, const: bulletList }
+        content:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ListItemNode'
+    OrderedListNode:
+      type: object
+      additionalProperties: false
+      required: [type, content]
+      properties:
+        type: { type: string, const: orderedList }
+        content:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ListItemNode'
+    ListItemNode:
+      type: object
+      additionalProperties: false
+      required: [type, content]
+      properties:
+        type: { type: string, const: listItem }
+        content:
+          type: array
+          minItems: 1
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/ParagraphNode'
+              - $ref: '#/components/schemas/BulletListNode'
+              - $ref: '#/components/schemas/OrderedListNode'
+    TextNode:
+      type: object
+      additionalProperties: false
+      required: [type, text]
+      properties:
+        type: { type: string, const: text }
+        text: { type: string }
+        marks:
+          type: array
+          items:
+            $ref: '#/components/schemas/RichTextMark'
+    HardBreakNode:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type: { type: string, const: hardBreak }
+    RichTextMark:
+      oneOf:
+        - $ref: '#/components/schemas/BoldMark'
+        - $ref: '#/components/schemas/ItalicMark'
+        - $ref: '#/components/schemas/LinkMark'
+    BoldMark:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type: { type: string, const: bold }
+    ItalicMark:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type: { type: string, const: italic }
+    LinkMark:
+      type: object
+      additionalProperties: false
+      required: [type, attrs]
+      properties:
+        type: { type: string, const: link }
+        attrs:
+          type: object
+          additionalProperties: false
+          required: [href]
+          properties:
+            href: { type: string, format: uri, pattern: '^https?://' }
+    FieldIssue:
+      type: object
+      additionalProperties: false
+      required: [path, message]
+      properties:
+        path: { type: string, minLength: 1 }
+        message: { type: string, minLength: 1 }
+    ValidationErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, issues]
+          properties:
+            code: { type: string, const: POSITION_CREATE_INVALID }
+            message: { type: string, minLength: 1 }
+            issues:
+              type: array
+              items:
+                $ref: '#/components/schemas/FieldIssue'
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [REQUEST_TOO_LARGE, POSITIONS_DATA_INVALID, DATA_RELATION_INVALID, POSITION_WRITE_FAILED]
+            message: { type: string, minLength: 1 }

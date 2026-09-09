@@ -1,0 +1,27 @@
+node_modules/
+dist/
+artifacts/
+design-qa.md
+
+.npm-cache/
+.uv-cache/
+.uv-python/
+.uv-tools/
+
+*.tsbuildinfo
+*.log
+.env
+.env.*
+!.env.example
+
+# Private workspace data
+data/positions.json
+data/reference-data.json
+data/resumes/
+data/backups/
+data/.workspace-transfer/
+data/company-logos/*
+!data/company-logos/README.md
+
+.DS_Store
+Thumbs.db

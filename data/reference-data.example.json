@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "departments": [
+    { "id": "engineering", "name": "Engineering", "teams": [{ "id": "frontend", "name": "Frontend" }, { "id": "platform", "name": "Platform" }, { "id": "quality", "name": "Quality" }] },
+    { "id": "product", "name": "Product", "teams": [{ "id": "product-management", "name": "Product Management" }, { "id": "design", "name": "Design" }] },
+    { "id": "operations", "name": "Operations", "teams": [{ "id": "people", "name": "People" }, { "id": "customer-success", "name": "Customer Success" }] }
+  ],
+  "locations": [
+    { "id": "tehran", "name": "Tehran" },
+    { "id": "berlin", "name": "Berlin" },
+    { "id": "london", "name": "London" },
+    { "id": "remote-emea", "name": "Remote - EMEA" }
+  ]
+}

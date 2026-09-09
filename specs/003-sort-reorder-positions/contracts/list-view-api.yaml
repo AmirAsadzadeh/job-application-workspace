@@ -1,0 +1,83 @@
+openapi: 3.1.0
+info:
+  title: Position List View Contract
+  version: 1.0.0
+paths:
+  /api/positions:
+    get:
+      summary: List position summaries with the saved list-view preference
+      responses:
+        '200':
+          description: The matching positions remain in canonical Manual sequence and include the saved view preference.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [positions, listView]
+                properties:
+                  positions:
+                    type: array
+                    items:
+                      $ref: './reorder-position-api.yaml#/components/schemas/PositionSummary'
+                  listView:
+                    $ref: '#/components/schemas/ListViewPreference'
+  /api/positions/list-view:
+    patch:
+      summary: Persist the active Manual or column sorting mode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListViewPreference'
+      responses:
+        '200':
+          description: The preference was saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [listView]
+                properties:
+                  listView:
+                    $ref: '#/components/schemas/ListViewPreference'
+        '400':
+          description: The requested mode, column, or direction combination is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: './reorder-position-api.yaml#/components/schemas/ErrorResponse'
+        '500':
+          description: The preference could not be saved; the previous document remains unchanged.
+          content:
+            application/json:
+              schema:
+                $ref: './reorder-position-api.yaml#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    ListViewPreference:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [mode, column, direction]
+          properties:
+            mode:
+              const: manual
+            column:
+              type: 'null'
+            direction:
+              type: 'null'
+        - type: object
+          additionalProperties: false
+          required: [mode, column, direction]
+          properties:
+            mode:
+              const: column
+            column:
+              type: string
+              enum: [company, title, status, workMode, seniority, updatedAt]
+            direction:
+              type: string
+              enum: [asc, desc]
