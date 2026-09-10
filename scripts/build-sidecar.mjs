@@ -6,7 +6,7 @@ import { build } from "esbuild";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const buildDirectory = join(root, "build");
-const binaryDirectory = join(root, "src-tauri", "binaries");
+const binaryDirectory = join(root, "apps", "desktop", "src-tauri", "binaries");
 const resourceDirectory = join(root, "desktop-resources");
 const bundledEntry = join(buildDirectory, "sidecar.cjs");
 const blobPath = join(buildDirectory, "sidecar.blob");
@@ -40,13 +40,18 @@ await mkdir(binaryDirectory, { recursive: true });
 await mkdir(resourceDirectory, { recursive: true });
 
 await build({
-  entryPoints: [join(root, "server", "sidecar.ts")],
+  absWorkingDir: root,
+  entryPoints: ["./apps/local-service/src/sidecar.ts"],
   outfile: bundledEntry,
   bundle: true,
   platform: "node",
   target: "node24",
   format: "cjs",
   external: ["vite"],
+  alias: {
+    "@workspace/domain/positionSchema": join(root, "packages", "domain", "src", "positionSchema.ts"),
+    "@workspace/domain/workspacePackageSchema": join(root, "packages", "domain", "src", "workspacePackageSchema.ts"),
+  },
   sourcemap: false,
   minify: false,
 });
@@ -72,7 +77,7 @@ execFileSync(process.execPath, [
 
 await markAsWindowsGui(binaryPath);
 
-await cp(join(root, "dist"), join(resourceDirectory, "dist"), { recursive: true });
+await cp(join(root, "apps", "web", "dist"), join(resourceDirectory, "dist"), { recursive: true });
 await copyFile(join(root, "data", "positions.example.json"), join(resourceDirectory, "positions.example.json"));
 await copyFile(join(root, "data", "reference-data.example.json"), join(resourceDirectory, "reference-data.example.json"));
 

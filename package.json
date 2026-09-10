@@ -1,23 +1,34 @@
 {
-  "name": "job-positions",
+  "name": "job-application-workspace",
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "workspaces": [
+    "apps/web",
+    "apps/api",
+    "apps/local-service",
+    "apps/desktop",
+    "packages/domain"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
-    "dev": "tsx watch server/cli.ts",
-    "build": "tsc -b && tsc -p tsconfig.server.json && vite build --configLoader native",
+    "dev": "tsx watch apps/local-service/src/cli.ts",
+    "build": "tsc -b && vite build apps/web --configLoader native",
+    "build:online": "tsc -b && vite build apps/web --configLoader native --mode online",
     "build:sidecar": "node scripts/build-sidecar.mjs",
     "desktop:prepare": "npm run build && npm run build:sidecar",
-    "start": "tsx server/cli.ts --production",
-    "preview": "tsx server/cli.ts --production",
+    "start": "tsx apps/local-service/src/cli.ts --production",
+    "preview": "tsx apps/local-service/src/cli.ts --production",
     "tauri": "tauri",
     "tauri:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tauri.ps1 dev",
     "tauri:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tauri.ps1 build",
     "tauri:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tauri.ps1 check",
     "tauri:test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tauri.ps1 test",
-    "test": "vitest run --configLoader native",
-    "test:watch": "vitest --configLoader native",
-    "test:performance": "vitest run --configLoader native server/positionsPerformance.test.ts src/features/positions/components/PositionList.performance.test.tsx"
+    "test": "vitest run --config vitest.config.ts --configLoader native",
+    "test:watch": "vitest --config vitest.config.ts --configLoader native",
+    "test:performance": "vitest run --config vitest.config.ts --configLoader native apps/local-service/src/positionsPerformance.test.ts apps/web/src/features/positions/components/PositionList.performance.test.tsx"
   },
   "dependencies": {
     "@archiver/archiver": "^0.2.0",

@@ -1,0 +1,486 @@
+openapi: 3.1.0
+info:
+  title: Job Application Workspace Online API
+  version: 0.1.0
+  description: Authenticated online workspace and complete replacement operations.
+servers:
+  - url: https://app.example.com
+security:
+  - sessionCookie: []
+  - desktopBearer: [workspace]
+paths:
+  /api/workspace:
+    get:
+      operationId: getWorkspace
+      responses:
+        '200':
+          description: Current account workspace and revision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/workspace/revision:
+    get:
+      operationId: getWorkspaceRevision
+      responses:
+        '200':
+          description: Lightweight connectivity and revision check.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revision, updatedAt]
+                properties:
+                  revision: { type: integer, minimum: 0 }
+                  updatedAt: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/workspace/export:
+    get:
+      operationId: exportOnlineWorkspace
+      responses:
+        '200':
+          description: Complete versioned workspace package for the authenticated owner.
+          headers:
+            ETag:
+              schema: { type: string }
+            X-Workspace-Revision:
+              schema: { type: integer }
+          content:
+            application/zip:
+              schema: { type: string, contentEncoding: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/positions:
+    get:
+      operationId: listPositions
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string }
+      responses:
+        '200':
+          description: Account-owned position summaries and workspace revision.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [positions, listView, revision]
+                properties:
+                  positions:
+                    type: array
+                    items: { $ref: '#/components/schemas/PositionSummary' }
+                  listView: { $ref: '#/components/schemas/ListView' }
+                  revision: { type: integer, minimum: 0 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      operationId: createPosition
+      parameters:
+        - $ref: '#/components/parameters/ExpectedWorkspaceRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PositionInput' }
+      responses:
+        '201':
+          description: Created position and new workspace revision.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PositionMutationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/RevisionConflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/positions/{positionId}:
+    parameters:
+      - $ref: '#/components/parameters/PositionId'
+    get:
+      operationId: getPosition
+      responses:
+        '200':
+          description: Complete account-owned position.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [position, workspaceRevision]
+                properties:
+                  position: { $ref: '#/components/schemas/Position' }
+                  workspaceRevision: { type: integer, minimum: 0 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      operationId: updatePosition
+      parameters:
+        - $ref: '#/components/parameters/ExpectedWorkspaceRevision'
+        - $ref: '#/components/parameters/ExpectedRecordRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PositionInput' }
+      responses:
+        '200':
+          description: Updated position and revisions.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PositionMutationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/RevisionConflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/positions/order:
+    patch:
+      operationId: reorderPositions
+      parameters:
+        - $ref: '#/components/parameters/ExpectedWorkspaceRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderedIds]
+              properties:
+                orderedIds:
+                  type: array
+                  minItems: 1
+                  uniqueItems: true
+                  items: { type: string }
+      responses:
+        '200':
+          description: New order and workspace revision.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/RevisionConflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/positions/list-view:
+    patch:
+      operationId: updateListView
+      parameters:
+        - $ref: '#/components/parameters/ExpectedWorkspaceRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ListView' }
+      responses:
+        '200': { description: Updated preference and workspace revision. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/RevisionConflict' }
+  /api/positions/{positionId}/questions:
+    parameters:
+      - $ref: '#/components/parameters/PositionId'
+    post:
+      operationId: createQuestion
+      parameters:
+        - $ref: '#/components/parameters/ExpectedWorkspaceRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '201': { description: Created question and updated revisions. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/RevisionConflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/positions/{positionId}/readiness/readings:
+    parameters:
+      - $ref: '#/components/parameters/PositionId'
+    post:
+      operationId: createReading
+      parameters:
+        - $ref: '#/components/parameters/ExpectedWorkspaceRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '201': { description: Created reading and updated revisions. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/RevisionConflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/positions/{positionId}/application/resume:
+    parameters:
+      - $ref: '#/components/parameters/PositionId'
+    put:
+      operationId: replaceSubmittedResume
+      parameters:
+        - $ref: '#/components/parameters/ExpectedWorkspaceRevision'
+      requestBody:
+        required: true
+        content:
+          application/pdf:
+            schema: { type: string, contentEncoding: binary }
+          application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+            schema: { type: string, contentEncoding: binary }
+      responses:
+        '200': { description: Resume metadata and new workspace revision. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/RevisionConflict' }
+        '413': { description: File exceeds configured size limit. }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    get:
+      operationId: getSubmittedResumeAccess
+      responses:
+        '200':
+          description: Short-lived authenticated download information.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url, expiresAt, fileName, mediaType]
+                properties:
+                  url: { type: string, format: uri }
+                  expiresAt: { type: string, format: date-time }
+                  fileName: { type: string }
+                  mediaType: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/synchronizations/uploads:
+    post:
+      operationId: createUploadPreview
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Sync-Direction
+          required: true
+          schema:
+            type: string
+            enum: [offline_to_online, working_copy_to_online]
+        - in: header
+          name: X-Last-Confirmed-Revision
+          required: false
+          schema: { type: integer, minimum: 0 }
+      requestBody:
+        required: true
+        content:
+          application/zip:
+            schema: { type: string, contentEncoding: binary }
+      responses:
+        '201':
+          description: Validated replacement preview; no active data changed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SynchronizationPreview' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413': { description: Package exceeds configured limits. }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/synchronizations/{attemptId}/confirm:
+    post:
+      operationId: confirmOnlineReplacement
+      parameters:
+        - in: path
+          name: attemptId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sourceChecksum, expectedDestinationRevision, confirmReplacement]
+              properties:
+                sourceChecksum: { type: string }
+                expectedDestinationRevision: { type: integer, minimum: 0 }
+                confirmReplacement: { const: true }
+      responses:
+        '200':
+          description: Completed idempotent replacement result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SynchronizationResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/RevisionConflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/synchronizations/{attemptId}:
+    delete:
+      operationId: cancelSynchronization
+      parameters:
+        - in: path
+          name: attemptId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Preview cancelled; active workspace unchanged. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: better-auth.session_token
+    desktopBearer:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://app.example.com/api/auth/oauth2/authorize
+          tokenUrl: https://app.example.com/api/auth/oauth2/token
+          scopes:
+            workspace: Access the owner's workspace.
+  parameters:
+    PositionId:
+      in: path
+      name: positionId
+      required: true
+      schema: { type: string }
+    ExpectedWorkspaceRevision:
+      in: header
+      name: If-Match
+      required: true
+      schema: { type: string, description: Quoted workspace revision ETag. }
+    ExpectedRecordRevision:
+      in: header
+      name: X-Record-Revision
+      required: false
+      schema: { type: integer, minimum: 0 }
+  responses:
+    Unauthorized:
+      description: Missing, expired, revoked, or invalid authentication.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Resource absent or not owned by the authenticated account.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    RevisionConflict:
+      description: Expected revision is stale; reload or create a new synchronization preview.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ValidationError:
+      description: Request or workspace package failed validation.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            issues:
+              type: array
+              items:
+                type: object
+                required: [path, message]
+                properties:
+                  path: { type: string }
+                  message: { type: string }
+    WorkspaceResponse:
+      type: object
+      required: [workspace, revision, updatedAt]
+      properties:
+        workspace:
+          type: object
+          description: Document conforming to the shared current PositionsDocument and ReferenceData schemas.
+          additionalProperties: true
+        revision: { type: integer, minimum: 0 }
+        updatedAt: { type: string, format: date-time }
+    PositionSummary:
+      type: object
+      required: [id, company, title, status, workMode, seniority, updatedAt]
+      properties:
+        id: { type: string }
+        company: { type: object, additionalProperties: true }
+        title: { type: string }
+        status: { type: string }
+        workMode: { type: string }
+        seniority: { type: string }
+        updatedAt: { type: string, format: date-time }
+    Position:
+      allOf:
+        - $ref: '#/components/schemas/PositionInput'
+        - type: object
+          required: [id, revision, createdAt, updatedAt]
+          properties:
+            id: { type: string }
+            revision: { type: integer, minimum: 0 }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    PositionInput:
+      type: object
+      description: Conforms to the shared current CreatePositionInput or PositionDetailsUpdate schema.
+      additionalProperties: true
+    PositionMutationResponse:
+      type: object
+      required: [position, workspaceRevision]
+      properties:
+        position: { $ref: '#/components/schemas/Position' }
+        workspaceRevision: { type: integer, minimum: 0 }
+    ListView:
+      type: object
+      required: [mode]
+      properties:
+        mode: { type: string, enum: [manual, column] }
+        column: { type: [string, 'null'] }
+        direction: { type: [string, 'null'], enum: [asc, desc, null] }
+    Counts:
+      type: object
+      required: [positions, platformLinks, questions, readings, resumes, logos, departments, teams, locations]
+      properties:
+        positions: { type: integer, minimum: 0 }
+        platformLinks: { type: integer, minimum: 0 }
+        questions: { type: integer, minimum: 0 }
+        readings: { type: integer, minimum: 0 }
+        resumes: { type: integer, minimum: 0 }
+        logos: { type: integer, minimum: 0 }
+        departments: { type: integer, minimum: 0 }
+        teams: { type: integer, minimum: 0 }
+        locations: { type: integer, minimum: 0 }
+    SynchronizationPreview:
+      type: object
+      required: [attemptId, direction, source, destination, conflict, willReplace, willMerge, backupRequired, expiresAt]
+      properties:
+        attemptId: { type: string, format: uuid }
+        direction: { type: string, enum: [offline_to_online, working_copy_to_online] }
+        source: { $ref: '#/components/schemas/WorkspaceSide' }
+        destination: { $ref: '#/components/schemas/WorkspaceSide' }
+        conflict: { type: boolean }
+        willReplace: { const: online }
+        willMerge: { const: false }
+        backupRequired: { const: true }
+        notices: { type: array, items: { type: string } }
+        expiresAt: { type: string, format: date-time }
+    WorkspaceSide:
+      type: object
+      required: [updatedAt, counts]
+      properties:
+        revision: { type: [integer, 'null'], minimum: 0 }
+        updatedAt: { type: string, format: date-time }
+        checksum: { type: [string, 'null'] }
+        counts: { $ref: '#/components/schemas/Counts' }
+    SynchronizationResult:
+      type: object
+      required: [attemptId, status, revision, backup, counts, completedAt]
+      properties:
+        attemptId: { type: string, format: uuid }
+        status: { const: completed }
+        revision: { type: integer, minimum: 1 }
+        backup:
+          type: object
+          required: [id, createdAt]
+          properties:
+            id: { type: string, format: uuid }
+            createdAt: { type: string, format: date-time }
+        counts: { $ref: '#/components/schemas/Counts' }
+        completedAt: { type: string, format: date-time }

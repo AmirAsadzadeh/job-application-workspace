@@ -1,0 +1,9 @@
+{
+  "name": "@workspace/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "check": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../scripts/run-tauri.ps1 check",
+    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../scripts/run-tauri.ps1 test"
+  }
+}

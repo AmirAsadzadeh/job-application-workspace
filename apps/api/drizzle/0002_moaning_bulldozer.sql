@@ -1,0 +1,1 @@
+ALTER TABLE "positions" ADD COLUMN "company_logo_file_id" uuid;

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Job Application Workspace",
+  "version": "0.1.0",
+  "identifier": "com.amirasadzadeh.job-application-workspace",
+  "build": {
+    "frontendDist": "bootstrap"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Job Application Workspace",
+        "url": "index.html",
+        "width": 1180,
+        "height": 780,
+        "minWidth": 780,
+        "minHeight": 560,
+        "center": true,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "capabilities": ["desktop"],
+      "csp": "default-src 'self' http://127.0.0.1:*; connect-src 'self' http://127.0.0.1:*; img-src 'self' http://127.0.0.1:* data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["job-application-workspace"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "externalBin": ["binaries/workspace-sidecar"],
+    "resources": {
+      "../../../desktop-resources/": "desktop-resources/"
+    },
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
+      "nsis": { "installMode": "currentUser" }
+    }
+  }
+}

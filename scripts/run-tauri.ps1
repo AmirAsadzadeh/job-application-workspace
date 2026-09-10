@@ -19,15 +19,21 @@ $developerCommand = Join-Path $visualStudio "Common7\Tools\VsDevCmd.bat"
 }
 
 switch ($Mode) {
-  "check" { & cargo check --manifest-path src-tauri/Cargo.toml }
-  "test" { & cargo test --manifest-path src-tauri/Cargo.toml }
+  "check" { & cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml }
+  "test" { & cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml }
   "dev" {
     & npm.cmd run desktop:prepare
-    if ($LASTEXITCODE -eq 0) { & npx.cmd tauri dev }
+    if ($LASTEXITCODE -eq 0) {
+      Push-Location apps/desktop
+      try { & npx.cmd tauri dev } finally { Pop-Location }
+    }
   }
   "build" {
     & npm.cmd run desktop:prepare
-    if ($LASTEXITCODE -eq 0) { & npx.cmd tauri build }
+    if ($LASTEXITCODE -eq 0) {
+      Push-Location apps/desktop
+      try { & npx.cmd tauri build } finally { Pop-Location }
+    }
   }
 }
 

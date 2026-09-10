@@ -1,16 +1,16 @@
 <!--
 Sync Impact Report
-- Version change: template -> 1.0.0
-- Added principles:
-  - I. Specifications Are the Source of Truth
-  - II. Explicit Approval Gates
-  - III. Small, Testable User Journeys
-  - IV. Quiet, Scannable User Experience
-  - V. Local, Human-Readable Data
-- Added sections:
-  - Product and Technical Constraints
-  - Development Workflow and Quality Gates
-- Removed sections: none; template placeholders were replaced.
+- Version change: 1.0.0 -> 2.0.0
+- Modified principle:
+  - V. Local, Human-Readable Data -> V. User-Owned, Portable Data
+- Rationale: Permit approved authenticated remote persistence and offline-capable
+  Online working copies while preserving explicit synchronization, local operation,
+  portability, and user control.
+- Affected artifacts:
+  - specs/008-authenticated-backend/spec.md
+  - Future feature 008 plan, tasks, tests, and storage documentation
+- Migration impact: None immediately. Existing local JSON data remains unchanged;
+  future remote transfer must be optional, previewed, backed up, and confirmed.
 - Follow-up TODOs: none.
 -->
 # Front-end Interview Constitution
@@ -53,14 +53,22 @@ contrast, consistent alignment, and clear interaction states are required unless
 approved feature specification states otherwise. Important details MUST be easy to find,
 and secondary details MUST not obscure primary workflows.
 
-### V. Local, Human-Readable Data
+### V. User-Owned, Portable Data
 
-Persistent product data MUST be stored in local, human-readable JSON files accessed
-through the file system. Browser local storage MUST NOT be used for persistent product
-records. Data structures MUST remain understandable, portable, and suitable for manual
-backup or inspection. Any change to storage format, file ownership, migration behavior,
-or data location requires an approved specification and plan. This keeps the product
-simple and gives the user direct ownership of their data.
+Offline workspace data MUST remain in local, human-readable JSON files accessed through
+the file system. Online workspace data MAY use authenticated remote persistence when
+explicitly approved by a feature specification and plan.
+
+Offline and Online modes MUST remain clearly distinguishable. Existing local data MUST
+never be uploaded, downloaded, merged, replaced, or deleted without explicit user
+confirmation. Account-specific local working copies MAY support Online mode during
+connectivity loss.
+
+Browser local storage MUST NOT hold persistent product records or reusable authentication
+credentials. Users MUST retain a documented, provider-independent export and recovery
+path. Changes to storage format, ownership, migration, synchronization, or data location
+require an approved specification and plan. This enables cross-machine access without
+sacrificing local operation, portability, or user control.
 
 ## Product and Technical Constraints
 
@@ -106,4 +114,4 @@ Every planning and implementation review MUST verify compliance with the current
 constitution. Any justified exception MUST be documented in the relevant feature plan and
 approved by the user before work proceeds.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-09-06
+**Version**: 2.0.0 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-09-10

@@ -1,0 +1,16 @@
+node_modules/
+.git/
+dist/
+build/
+coverage/
+artifacts/
+apps/web/dist/
+apps/desktop/src-tauri/target/
+desktop-resources/
+*.log*
+.env*
+data/positions.json
+data/reference-data.json
+data/resumes/
+data/backups/
+data/company-logos/
