@@ -18,6 +18,7 @@
 
 - [x] Silent per-user installation completed in under 6 seconds, below the three-minute target.
 - [x] Installed app and sidecar launched without `npm start` or a browser address.
+- [x] The release app and sidecar use the Windows GUI subsystem and open without console windows.
 - [x] First measured usable endpoint was ready in 1,476 ms, below the five-second target.
 - [x] A second launch left exactly one application process running.
 - [x] A missing-sidecar failure injection left the desktop shell alive and responsive in recovery mode.
@@ -37,8 +38,8 @@
 ## Release Artifact
 
 - **Installer**: `src-tauri/target/release/bundle/nsis/Job Application Workspace_0.1.0_x64-setup.exe`
-- **Size**: 26,116,617 bytes
-- **SHA-256**: `BD01469EB37D1CDEF6EB26182B486A86A3B1FB95808DFF1718E0FF07537E4911`
+- **Size**: 26,119,092 bytes
+- **SHA-256**: `54700F6EFBB9D28038639A63A8A77A5A6E1CF5EAD25D2A15A9F02C6CCD3AE560`
 
 ## Pending Compatibility Matrix
 
