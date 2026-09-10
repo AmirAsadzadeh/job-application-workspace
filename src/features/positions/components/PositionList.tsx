@@ -1,6 +1,6 @@
 import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
 import { isSortableOperation } from "@dnd-kit/react/sortable";
-import { ArrowDown, ArrowUp, Briefcase, Download, List, Plus, RotateCw, Search, SearchX, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, Briefcase, Download, FolderOpen, List, Plus, RotateCw, Search, SearchX, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_LIST_VIEW, type ListViewPreference, type SortColumn } from "../../../../shared/positionSchema";
 import { positionApi } from "../positionApi";
@@ -11,6 +11,7 @@ import { StatusHelp } from "./StatusHelp";
 import { statusDefinitions } from "../positionTypes";
 import { EmptyState } from "./EmptyState";
 import { WorkspaceTransferDialog } from "./WorkspaceTransferDialog";
+import { isDesktopApplication, openWorkspaceDataFolder, saveWorkspacePackage } from "../../../desktop/desktopBridge";
 
 type ListApi = Pick<typeof positionApi, "listPositions" | "updateListView" | "reorderPosition" | "exportWorkspace" | "validateWorkspaceImport" | "cancelWorkspaceImport" | "restoreWorkspaceImport">;
 type Props = { onOpen: (id: string) => void; onCreate?: () => void; api?: ListApi };
@@ -120,10 +121,16 @@ export function PositionList({ onOpen, onCreate = () => undefined, api = positio
     setExporting(true); setMessage("");
     try {
       const exported = await api.exportWorkspace();
-      const url = URL.createObjectURL(exported.blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = exported.fileName; anchor.click(); URL.revokeObjectURL(url);
-      setAnnouncement("Workspace export downloaded.");
+      const saved = await saveWorkspacePackage(exported.blob, exported.fileName);
+      setAnnouncement(saved ? "Workspace export saved." : "Workspace export cancelled.");
     } catch { setMessage("Could not export the workspace."); setAnnouncement("Workspace export failed."); }
     finally { setExporting(false); }
+  }
+
+  async function handleOpenDataFolder() {
+    setMessage("");
+    try { await openWorkspaceDataFolder(); }
+    catch { setMessage("Could not open the workspace data folder."); }
   }
 
   return (
@@ -142,6 +149,7 @@ export function PositionList({ onOpen, onCreate = () => undefined, api = positio
         <div className="transfer-tools">
           <button className="icon-button" type="button" aria-label="Export workspace" title="Export workspace" disabled={exporting} onClick={() => void handleExport()}><Download size={15} /></button>
           <button className="icon-button" type="button" aria-label="Import workspace" title="Import workspace" onClick={() => setTransferOpen(true)}><Upload size={15} /></button>
+          {isDesktopApplication() && <button className="icon-button" type="button" aria-label="Open workspace data folder" title="Open workspace data folder" onClick={() => void handleOpenDataFolder()}><FolderOpen size={15} /></button>}
         </div>
         {!(state === "ready" && positions.length === 0 && !hasFilters) && <button className="primary-button create-position-button" type="button" onClick={onCreate}><Plus size={15} /> New position</button>}
       </section>

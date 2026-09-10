@@ -1,13 +1,24 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Position } from "../positionTypes";
 import { PositionReadinessSection, PositionSubmittedResume } from "./PositionReadinessSection";
+
+const desktop = vi.hoisted(() => ({ isDesktop: vi.fn(() => false), openExternal: vi.fn() }));
+vi.mock("../../../desktop/desktopBridge", () => ({
+  isDesktopApplication: desktop.isDesktop,
+  openExternalUrl: desktop.openExternal,
+}));
 
 const position: Position = { id: "p1", company: { name: "Acme", logoPath: null, logoUrl: null }, title: "Engineer", status: "applied", workMode: "remote", employmentType: "full_time", seniority: "Senior", departmentId: null, teamId: null, locationId: null, hiringManager: { name: "", phone: "", position: "" }, salary: null, description: { type: "doc", content: [{ type: "paragraph" }] }, jobPlatformLinks: [], careerPageUrl: null, careerPageApplicationStatus: null, careerPageApplicationDate: null, questions: [], readingItems: [], submittedResume: null, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
 const api = (overrides = {}) => ({ createReading: vi.fn(), updateReading: vi.fn(), deleteReading: vi.fn(), ...overrides });
 const resumeApi = (overrides = {}) => ({ uploadResume: vi.fn(), getResumeOpenUrl: vi.fn(() => "/resume"), removeResume: vi.fn(), ...overrides });
 
 describe("PositionReadinessSection", () => {
+  beforeEach(() => {
+    desktop.isDesktop.mockReturnValue(false);
+    desktop.openExternal.mockReset();
+  });
+
   it("offers the approved reading empty action without resume controls", () => {
     render(<PositionReadinessSection position={position} onPositionChange={vi.fn()} api={api()} />);
     expect(screen.getByText("No reading items yet")).toBeInTheDocument();
@@ -53,5 +64,20 @@ describe("PositionReadinessSection", () => {
     expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/resume");
     expect(screen.getByRole("button", { name: "Replace" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove resume" })).toBeInTheDocument();
+  });
+
+  it("keeps browser reading links native and intercepts them on desktop", () => {
+    const reading = { id: "r1", title: "React docs", url: "https://react.dev", notes: "", isRead: false, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
+    const linkedPosition = { ...position, readingItems: [reading] };
+    const { rerender } = render(<PositionReadinessSection position={linkedPosition} onPositionChange={vi.fn()} api={api()} />);
+    const link = screen.getByRole("link", { name: "Open React docs" });
+    expect(link).toHaveAttribute("href", "https://react.dev");
+    fireEvent.click(link);
+    expect(desktop.openExternal).not.toHaveBeenCalled();
+
+    desktop.isDesktop.mockReturnValue(true);
+    rerender(<PositionReadinessSection position={linkedPosition} onPositionChange={vi.fn()} api={api()} />);
+    fireEvent.click(screen.getByRole("link", { name: "Open React docs" }));
+    expect(desktop.openExternal).toHaveBeenCalledWith("https://react.dev");
   });
 });

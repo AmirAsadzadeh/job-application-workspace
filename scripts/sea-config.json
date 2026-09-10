@@ -1,0 +1,7 @@
+{
+  "main": "build/sidecar.cjs",
+  "output": "build/sidecar.blob",
+  "disableExperimentalSEAWarning": true,
+  "useSnapshot": false,
+  "useCodeCache": false
+}

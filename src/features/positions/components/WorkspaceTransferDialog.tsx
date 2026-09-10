@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { WorkspacePreview, WorkspaceRestoreResult } from "../../../../shared/workspacePackageSchema";
 import { positionApi, PositionApiError } from "../positionApi";
+import { chooseWorkspaceZip, isDesktopApplication } from "../../../desktop/desktopBridge";
 
 type TransferApi = Pick<typeof positionApi, "validateWorkspaceImport" | "cancelWorkspaceImport" | "restoreWorkspaceImport">;
 type Props = { open: boolean; onClose: () => void; onRestored: (result: WorkspaceRestoreResult) => void; api?: TransferApi };
@@ -18,6 +19,10 @@ export function WorkspaceTransferDialog({ open, onClose, onRestored, api = posit
     try { setPreview(await api.validateWorkspaceImport(file)); setStage("preview"); }
     catch (cause) { setError(cause instanceof PositionApiError ? cause.message : "Could not validate this workspace package."); setStage("error"); }
   }
+  async function selectDesktopFile() {
+    try { await selectFile((await chooseWorkspaceZip()) ?? undefined); }
+    catch { setError("Could not read the selected workspace package."); setStage("error"); }
+  }
   async function close() { if (preview && stage !== "success" && stage !== "restoring") await api.cancelWorkspaceImport(preview.importId).catch(() => undefined); onClose(); }
   async function restore() {
     if (!preview) return; setStage("restoring"); setError("");
@@ -28,7 +33,9 @@ export function WorkspaceTransferDialog({ open, onClose, onRestored, api = posit
   return <div className="dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && stage !== "restoring") void close(); }}>
     <section className="transfer-dialog" role="dialog" aria-modal="true" aria-labelledby="transfer-title" onKeyDown={(event) => { if (event.key === "Escape" && stage !== "restoring") void close(); }}>
       <header><h2 id="transfer-title">Import workspace</h2><button ref={closeRef} className="icon-button" type="button" aria-label="Close import" title="Close" disabled={stage === "restoring"} onClick={() => void close()}><X size={16} /></button></header>
-      {stage === "select" && <div className="transfer-body"><p>Select a workspace ZIP exported by this app.</p><label className="primary-button file-button">Choose ZIP<input aria-label="Workspace ZIP" type="file" accept=".zip,application/zip" onChange={(event) => void selectFile(event.target.files?.[0])} /></label></div>}
+      {stage === "select" && <div className="transfer-body"><p>Select a workspace ZIP exported by this app.</p>{isDesktopApplication()
+        ? <button className="primary-button" type="button" onClick={() => void selectDesktopFile()}>Choose ZIP</button>
+        : <label className="primary-button file-button">Choose ZIP<input aria-label="Workspace ZIP" type="file" accept=".zip,application/zip" onChange={(event) => void selectFile(event.target.files?.[0])} /></label>}</div>}
       {stage === "validating" && <div className="transfer-body" role="status">Validating package...</div>}
       {stage === "preview" && preview && counts && <div className="transfer-body"><p><strong>{preview.sourceFileName}</strong></p><div className="transfer-counts"><span>{counts.positions} positions</span><span>{counts.questions} questions</span><span>{counts.readings} readings</span><span>{counts.platformLinks} platform links</span><span>{counts.resumes} resumes</span><span>{counts.logos} logos</span></div><p className="warning-text">Continuing will replace the complete current workspace.</p><footer><button className="secondary-button" type="button" onClick={() => void close()}>Cancel</button><button className="primary-button" type="button" onClick={() => setStage("confirm")}>Continue</button></footer></div>}
       {stage === "confirm" && <div className="transfer-body"><p className="warning-text"><strong>Replace the current workspace?</strong></p><p>A complete backup will be created first. Imported data will replace, not merge with, current data.</p><footer><button className="secondary-button" type="button" onClick={() => setStage("preview")}>Back</button><button className="danger-button" type="button" onClick={() => void restore()}>Replace workspace</button></footer></div>}

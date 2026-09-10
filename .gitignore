@@ -1,5 +1,11 @@
 node_modules/
 dist/
+desktop-resources/
+src-tauri/target/
+src-tauri/gen/schemas/
+src-tauri/binaries/*
+!src-tauri/binaries/README.md
+build/sidecar*
 artifacts/
 design-qa.md
 

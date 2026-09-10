@@ -7,8 +7,9 @@ describe("position row activation performance", () => {
   it("dispatches row activation within 100ms", () => {
     const onOpen = vi.fn();
     render(<PositionRow position={{ id: "p1", company: { name: "Acme", logoPath: null, logoUrl: null }, title: "Engineer", status: "applied", workMode: "remote", seniority: "Senior", updatedAt: "2026-01-01T00:00:00.000Z" }} onOpen={onOpen} />);
+    const openButton = screen.getByRole("button", { name: "Open Engineer at Acme" });
     const started = performance.now();
-    fireEvent.click(screen.getByRole("button", { name: "Open Engineer at Acme" }));
+    fireEvent.click(openButton);
     expect(performance.now() - started).toBeLessThan(100);
     expect(onOpen).toHaveBeenCalledWith("p1");
   });

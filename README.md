@@ -47,6 +47,42 @@ npm start
 
 Then open `http://127.0.0.1:4173`. The production server serves the files from `dist/` and provides the local API used by the application, so opening `dist/index.html` directly is not supported.
 
+## Desktop Application
+
+The Windows desktop version launches normally without `npm start`, a terminal, or a browser address. Building it requires:
+
+- Rust stable with the MSVC target
+- Microsoft Visual Studio 2022 Build Tools with Desktop development with C++
+- Microsoft Edge WebView2
+
+Build the Windows installer:
+
+```powershell
+npm run tauri:build
+```
+
+The final installer is written to:
+
+```text
+src-tauri/target/release/bundle/nsis/*-setup.exe
+```
+
+Run the desktop application during development:
+
+```powershell
+npm run tauri:dev
+```
+
+The desktop application stores private runtime files under:
+
+```text
+%LOCALAPPDATA%\com.amirasadzadeh.job-application-workspace\workspace\
+```
+
+Use the folder button in the application toolbar to open that directory. To move existing data into the desktop application, export a workspace ZIP from the browser-run version and import it in the desktop version.
+
+The first desktop installer is unsigned, so Windows may show a publisher warning. The installer and generated executables are excluded from Git.
+
 ## Local Data
 
 On first launch, the server creates private runtime data files from the tracked templates in `data/`. Position records, resumes, uploaded logos, backups, and local caches remain inside `data/` and are excluded from Git.
@@ -56,6 +92,7 @@ On first launch, the server creates private runtime data files from the tracked 
 ```bash
 npm test
 npm run build
+npm run tauri:test
 ```
 
 ## Project Context

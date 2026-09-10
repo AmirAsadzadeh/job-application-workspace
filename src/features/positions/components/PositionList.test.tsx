@@ -5,6 +5,7 @@ import type { PositionSummary } from "../positionTypes";
 import type { ListViewPreference } from "../../../../shared/positionSchema";
 
 const dnd = vi.hoisted(() => ({ onDragEnd: undefined as undefined | ((event: unknown) => Promise<void>) }));
+const desktop = vi.hoisted(() => ({ isDesktop: vi.fn(() => false), openFolder: vi.fn(), savePackage: vi.fn(() => Promise.resolve(true)) }));
 vi.mock("@dnd-kit/react", () => ({
   DragDropProvider: ({ children, onDragEnd }: { children: React.ReactNode; onDragEnd: (event: unknown) => Promise<void> }) => {
     dnd.onDragEnd = onDragEnd;
@@ -14,6 +15,11 @@ vi.mock("@dnd-kit/react", () => ({
 vi.mock("@dnd-kit/react/sortable", () => ({
   isSortableOperation: () => true,
   useSortable: () => ({ ref: vi.fn(), handleRef: vi.fn(), isDragging: false }),
+}));
+vi.mock("../../../desktop/desktopBridge", () => ({
+  isDesktopApplication: desktop.isDesktop,
+  openWorkspaceDataFolder: desktop.openFolder,
+  saveWorkspacePackage: desktop.savePackage,
 }));
 
 const row: PositionSummary = { id: "p1", company: { name: "Acme Corporation With A Long Name", logoPath: null, logoUrl: null }, title: "Senior Frontend Engineer", status: "applied", workMode: "hybrid", seniority: "Senior", updatedAt: "2026-09-05T09:15:00.000Z" };
@@ -92,6 +98,25 @@ describe("PositionList", () => {
     expect(screen.getByRole("button", { name: "Export workspace" })).toHaveAttribute("title", "Export workspace");
     fireEvent.click(screen.getByRole("button", { name: "Import workspace" }));
     expect(screen.getByRole("dialog", { name: "Import workspace" })).toBeInTheDocument();
+  });
+
+  it("shows and runs the desktop data-folder action only in desktop mode", async () => {
+    desktop.isDesktop.mockReturnValue(true);
+    render(<PositionList onOpen={vi.fn()} api={api()} />);
+    await screen.findByText(row.title);
+    fireEvent.click(screen.getByRole("button", { name: "Open workspace data folder" }));
+    expect(desktop.openFolder).toHaveBeenCalledOnce();
+    desktop.isDesktop.mockReturnValue(false);
+  });
+
+  it("reports a desktop data-folder failure", async () => {
+    desktop.isDesktop.mockReturnValue(true);
+    desktop.openFolder.mockRejectedValueOnce(new Error("Explorer unavailable"));
+    render(<PositionList onOpen={vi.fn()} api={api()} />);
+    await screen.findByText(row.title);
+    fireEvent.click(screen.getByRole("button", { name: "Open workspace data folder" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not open the workspace data folder.");
+    desktop.isDesktop.mockReturnValue(false);
   });
 
   it("sorts headers in both directions, persists the mode, and restores Manual order", async () => {

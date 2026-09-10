@@ -4,6 +4,7 @@ import { ReadingItemInputSchema } from "../../../../shared/positionSchema";
 import { PositionApiError, positionApi } from "../positionApi";
 import { submittedResumeTypeLabels, type Position, type ReadingItemInput } from "../positionTypes";
 import { EmptyState } from "./EmptyState";
+import { isDesktopApplication, openExternalUrl } from "../../../desktop/desktopBridge";
 
 type ReadingApi = Pick<typeof positionApi, "createReading" | "updateReading" | "deleteReading">;
 type ResumeApi = Pick<typeof positionApi, "uploadResume" | "getResumeOpenUrl" | "removeResume"> & Partial<Pick<typeof positionApi, "checkResumeAvailability">>;
@@ -149,7 +150,11 @@ export function PositionReadinessSection({ position, onPositionChange, api = pos
           <label className="reading-check" title={reading.isRead ? "Mark as not read" : "Mark as read"}><input type="checkbox" checked={reading.isRead} disabled={busy === `reading-${reading.id}`} onChange={() => void toggleRead(reading.id)} /><span className="sr-only">{reading.isRead ? "Read" : "Not read"}: {reading.title}</span></label>
           <button className="reading-title" type="button" onClick={() => openReading(reading.id)} title={reading.title}><span className={reading.isRead ? "reading-complete" : ""}>{reading.title}</span></button>
           <span className="reading-status">{reading.isRead ? "Read" : "Not read"}</span>
-          {reading.url && <a className="icon-button small-icon-button" href={reading.url} target="_blank" rel="noreferrer" aria-label={`Open ${reading.title}`} title="Open link"><ExternalLink size={13} /></a>}
+          {reading.url && <a className="icon-button small-icon-button" href={reading.url} target="_blank" rel="noreferrer" onClick={(event) => {
+            if (!isDesktopApplication()) return;
+            event.preventDefault();
+            void openExternalUrl(reading.url!);
+          }} aria-label={`Open ${reading.title}`} title="Open link"><ExternalLink size={13} /></a>}
         </div>)}
         {!position.readingItems.length && activeId !== "new" && <EmptyState icon={BookOpen} message="No reading items yet" actionLabel="Add reading" onAction={addReading} actionRef={addReadingRef} />}
       </div>

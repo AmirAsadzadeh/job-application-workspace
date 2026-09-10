@@ -1,12 +1,12 @@
 import { createReadStream } from "node:fs";
-import { copyFile, mkdir, rm, stat } from "node:fs/promises";
+import { rm, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 import { CreatePositionInputSchema, ListViewPreferenceSchema, PositionDetailsUpdateSchema, PositionQuestionInputSchema, PositionStatusSchema, ReadingItemInputSchema, ReorderPositionInputSchema } from "../shared/positionSchema.js";
 import { createPositionsRepository, PositionsRepositoryError, type PositionsRepository } from "./positionsRepository.js";
 import { WorkspacePackageError } from "./workspacePackage.js";
 import { createWorkspaceTransferService, WorkspaceTransferError } from "./workspaceTransfer.js";
+import { initializeWorkspaceFiles } from "./desktopRuntime.js";
 
 type ApiHandler = (request: IncomingMessage, response: ServerResponse) => Promise<boolean>;
 
@@ -254,21 +254,42 @@ export async function serveFile(root: string, requestPath: string, response: Ser
   }
 }
 
-export async function startServer() {
-  const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-  const dataDirectoryPath = join(projectRoot, "data");
-  await mkdir(dataDirectoryPath, { recursive: true });
-  for (const name of ["positions", "reference-data"]) {
-    const target = join(dataDirectoryPath, `${name}.json`);
-    try { await stat(target); }
-    catch { await copyFile(join(dataDirectoryPath, `${name}.example.json`), target); }
-  }
-  const logoDirectoryPath = join(projectRoot, "data", "company-logos");
-  const repository = createPositionsRepository({ positionsPath: join(projectRoot, "data", "positions.json"), referenceDataPath: join(projectRoot, "data", "reference-data.json"), logoDirectoryPath, resumeDirectoryPath: join(projectRoot, "data", "resumes") });
+export type StartServerOptions = {
+  projectRoot?: string;
+  workspacePath?: string;
+  resourcesPath?: string;
+  host?: "127.0.0.1";
+  port?: number;
+  production?: boolean;
+  desktop?: boolean;
+  log?: (message: string) => void;
+};
+
+export async function startServer(options: StartServerOptions = {}) {
+  const projectRoot = options.projectRoot ?? options.resourcesPath ?? resolve(process.cwd());
+  const dataDirectoryPath = options.workspacePath ?? join(projectRoot, "data");
+  const resourcesPath = options.resourcesPath ?? projectRoot;
+  const templatePath = options.resourcesPath ? resourcesPath : join(projectRoot, "data");
+  await initializeWorkspaceFiles(dataDirectoryPath, templatePath);
+  const logoDirectoryPath = join(dataDirectoryPath, "company-logos");
+  const repository = createPositionsRepository({ positionsPath: join(dataDirectoryPath, "positions.json"), referenceDataPath: join(dataDirectoryPath, "reference-data.json"), logoDirectoryPath, resumeDirectoryPath: join(dataDirectoryPath, "resumes") });
   const apiHandler = createApiHandler(repository);
-  const production = process.argv.includes("--production");
+  const production = options.production ?? process.argv.includes("--production");
   const vite = production ? null : await (await import("vite")).createServer({ root: projectRoot, configLoader: "native", server: { middlewareMode: true }, appType: "spa" });
   const server = createServer(async (request, response) => {
+    if (options.desktop) {
+      const host = request.headers.host?.split(":")[0];
+      const origin = request.headers.origin;
+      let originIsLocal = true;
+      if (origin) {
+        try { originIsLocal = new URL(origin).hostname === "127.0.0.1"; }
+        catch { originIsLocal = false; }
+      }
+      if (host !== "127.0.0.1" || !originIsLocal) {
+        sendJson(response, 403, { error: { code: "LOCAL_REQUEST_REQUIRED", message: "Desktop requests must remain local." } });
+        return;
+      }
+    }
     if (await apiHandler(request, response)) return;
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
     if (pathname === "/data" || pathname.startsWith("/data/")) {
@@ -278,7 +299,7 @@ export async function startServer() {
     if (pathname.startsWith("/company-logos/")) {
       const logoName = pathname.slice("/company-logos".length);
       if (await serveFile(logoDirectoryPath, logoName, response, true)) return;
-      const bundledRoot = production ? join(projectRoot, "dist", "company-logos") : join(projectRoot, "public", "company-logos");
+      const bundledRoot = production ? join(resourcesPath, "dist", "company-logos") : join(projectRoot, "public", "company-logos");
       if (await serveFile(bundledRoot, logoName, response, true)) return;
       sendJson(response, 404, { error: { code: "NOT_FOUND", message: "Not found." } });
       return;
@@ -288,19 +309,17 @@ export async function startServer() {
       return;
     }
     if (pathname.startsWith("/assets/")) {
-      if (await serveFile(join(projectRoot, "dist"), pathname, response)) return;
+      if (await serveFile(join(resourcesPath, "dist"), pathname, response)) return;
     }
-    await serveFile(join(projectRoot, "dist"), "/index.html", response);
+    await serveFile(join(resourcesPath, "dist"), "/index.html", response);
   });
-  const port = Number(process.env.PORT ?? 4173);
-  await new Promise<void>((resolveListen) => server.listen(port, "127.0.0.1", resolveListen));
-  console.log(`Positions workspace: http://127.0.0.1:${port}`);
-  return server;
-}
-
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  startServer().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  });
+  const port = options.port ?? Number(process.env.PORT ?? 4173);
+  const host = options.host ?? "127.0.0.1";
+  await new Promise<void>((resolveListen) => server.listen(port, host, resolveListen));
+  const address = server.address();
+  const selectedPort = typeof address === "object" && address ? address.port : port;
+  const origin = `http://${host}:${selectedPort}`;
+  (options.log ?? console.log)(`Positions workspace: ${origin}`);
+  server.once("close", () => void vite?.close());
+  return { server, origin };
 }

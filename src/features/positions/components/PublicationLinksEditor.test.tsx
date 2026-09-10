@@ -4,6 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 import { localDateString, type ApplicationChannelStatus, type JobPlatformLink } from "../../../../shared/positionSchema";
 import { PublicationLinksEditor } from "./PublicationLinksEditor";
 
+const desktop = vi.hoisted(() => ({ isDesktop: vi.fn(() => false), openExternal: vi.fn() }));
+vi.mock("../../../desktop/desktopBridge", () => ({
+  isDesktopApplication: desktop.isDesktop,
+  openExternalUrl: desktop.openExternal,
+}));
+
 function Harness() {
   const [links, setLinks] = useState<JobPlatformLink[]>([
     { platformName: "LinkedIn", url: "https://example.com/1", applicationStatus: null, applicationDate: null },
@@ -50,5 +56,15 @@ describe("PublicationLinksEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Channel status definitions" }));
     const dialog = screen.getByRole("dialog", { name: "Channel status definitions" });
     for (const label of ["Not applied", "Applied", "Viewed", "Contacted", "Closed"]) expect(within(dialog).getByText(label)).toBeInTheDocument();
+  });
+
+  it("keeps valid links as browser anchors and uses the desktop opener", () => {
+    desktop.isDesktop.mockReturnValue(false);
+    render(<Harness />);
+    expect(screen.getByRole("link", { name: "Open LinkedIn posting" })).toHaveAttribute("href", "https://example.com/1");
+    expect(screen.getByRole("link", { name: "Open organization career page" })).toHaveAttribute("href", "https://example.com/careers");
+    desktop.isDesktop.mockReturnValue(true);
+    fireEvent.click(screen.getByRole("link", { name: "Open LinkedIn posting" }));
+    expect(desktop.openExternal).toHaveBeenCalledWith("https://example.com/1");
   });
 });
