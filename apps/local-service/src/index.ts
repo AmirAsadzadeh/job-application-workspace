@@ -6,7 +6,7 @@ import { CreatePositionInputSchema, ListViewPreferenceSchema, PositionDetailsUpd
 import { PositionsRepositoryError, type PositionsRepository } from "./positionsRepository.js";
 import { WorkspacePackageError } from "./workspacePackage.js";
 import { createWorkspaceTransferService, WorkspaceTransferError } from "./workspaceTransfer.js";
-import { initializeWorkspaceFiles } from "./desktopRuntime.js";
+import { initializeWorkspaceFiles } from "./workspaceInitialization.js";
 import { accountWorkspacePaths, normalizeWorkspaceLayout, offlineWorkspacePaths } from "./workspaceLayout.js";
 import { createWorkspaceModeHandler } from "./routes/workspaceModeRoutes.js";
 import { createLocalSynchronizationHandler } from "./routes/localSynchronizationRoutes.js";
@@ -298,7 +298,6 @@ export type StartServerOptions = {
   host?: "127.0.0.1";
   port?: number;
   production?: boolean;
-  desktop?: boolean;
   log?: (message: string) => void;
 };
 
@@ -335,19 +334,6 @@ export async function startServer(options: StartServerOptions = {}) {
   const production = options.production ?? process.argv.includes("--production");
   const vite = production ? null : await (await import("vite")).createServer({ root: projectRoot, configLoader: "native", server: { middlewareMode: true }, appType: "spa" });
   const server = createServer(async (request, response) => {
-    if (options.desktop) {
-      const host = request.headers.host?.split(":")[0];
-      const origin = request.headers.origin;
-      let originIsLocal = true;
-      if (origin) {
-        try { originIsLocal = new URL(origin).hostname === "127.0.0.1"; }
-        catch { originIsLocal = false; }
-      }
-      if (host !== "127.0.0.1" || !originIsLocal) {
-        sendJson(response, 403, { error: { code: "LOCAL_REQUEST_REQUIRED", message: "Desktop requests must remain local." } });
-        return;
-      }
-    }
     if (await modeHandler(request, response)) return;
     try {
       if (await localSynchronizationHandler(request, response)) return;

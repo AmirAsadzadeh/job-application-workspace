@@ -5,7 +5,6 @@ build/
 coverage/
 artifacts/
 apps/web/dist/
-apps/desktop/src-tauri/target/
 desktop-resources/
 *.log*
 .env*

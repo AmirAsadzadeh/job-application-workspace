@@ -141,21 +141,4 @@ CREATE INDEX "oauth_access_session_idx" ON "oauth_access_token" USING btree ("se
 CREATE INDEX "oauth_client_user_idx" ON "oauth_client" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "oauth_consent_user_idx" ON "oauth_consent" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "oauth_refresh_user_idx" ON "oauth_refresh_token" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "oauth_refresh_session_idx" ON "oauth_refresh_token" USING btree ("session_id");--> statement-breakpoint
-INSERT INTO "oauth_client" (
-	"id", "client_id", "name", "redirect_uris", "token_endpoint_auth_method",
-	"application_type", "grant_types", "response_types", "require_pkce",
-	"skip_consent", "scopes"
-) VALUES (
-	'job-application-workspace-desktop',
-	'job-application-workspace-desktop',
-	'Job Application Workspace Desktop',
-	ARRAY['job-application-workspace://auth/callback'],
-	'none',
-	'native',
-	ARRAY['authorization_code', 'refresh_token'],
-	ARRAY['code'],
-	true,
-	true,
-	ARRAY['openid', 'profile', 'email', 'offline_access', 'workspace:read', 'workspace:write']
-) ON CONFLICT ("client_id") DO NOTHING;
+CREATE INDEX "oauth_refresh_session_idx" ON "oauth_refresh_token" USING btree ("session_id");

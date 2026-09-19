@@ -3,7 +3,7 @@ import { Check, ExternalLink, GripVertical, Minus, X } from "lucide-react";
 import { useState } from "react";
 import type { PositionSummary } from "../positionTypes";
 import { statusLabels, workModeLabels } from "../positionTypes";
-import { openExternalUrl } from "../../../desktop/desktopBridge";
+import { openExternalUrl } from "../../../browser/browserActions";
 
 type Props = {
   position: PositionSummary;

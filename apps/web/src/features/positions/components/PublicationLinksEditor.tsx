@@ -10,7 +10,6 @@ import {
 } from "../positionTypes";
 import { StatusHelp } from "./StatusHelp";
 import { EmptyState } from "./EmptyState";
-import { isDesktopApplication, openExternalUrl } from "../../../desktop/desktopBridge";
 
 type Props = {
   links: JobPlatformLink[];
@@ -39,11 +38,7 @@ function validExternalUrl(value: string | null) {
 function ExternalUrlAction({ value, label }: { value: string | null; label: string }) {
   const url = validExternalUrl(value);
   if (!url) return null;
-  return <a className="icon-button small-icon-button" href={url} target="_blank" rel="noreferrer" aria-label={label} title={label} onClick={(event) => {
-    if (!isDesktopApplication()) return;
-    event.preventDefault();
-    void openExternalUrl(url);
-  }}><ExternalLink size={13} /></a>;
+  return <a className="icon-button small-icon-button" href={url} target="_blank" rel="noreferrer" aria-label={label} title={label}><ExternalLink size={13} /></a>;
 }
 
 export function PublicationLinksEditor({ links, careerPageUrl, careerPageApplicationStatus, careerPageApplicationDate, onLinksChange, onCareerPageChange, errors = {} }: Props) {

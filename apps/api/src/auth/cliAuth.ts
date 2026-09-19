@@ -1,6 +1,5 @@
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { betterAuth } from "better-auth";
-import { DESKTOP_OAUTH_CLIENT_ID } from "./oauth.js";
 
 // Schema-generation configuration. Runtime secrets and providers live in auth.ts.
 export const auth = betterAuth({
@@ -13,6 +12,5 @@ export const auth = betterAuth({
     loginPage: "http://127.0.0.1:4173/sign-in",
     consentPage: "http://127.0.0.1:4173/consent",
     scopes: ["openid", "profile", "email", "offline_access", "workspace:read", "workspace:write"],
-    cachedTrustedClients: new Set([DESKTOP_OAUTH_CLIENT_ID]),
   })],
 });

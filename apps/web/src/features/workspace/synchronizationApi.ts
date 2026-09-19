@@ -1,9 +1,11 @@
 import { SynchronizationPreviewSchema, SynchronizationResultSchema, type SynchronizationDirection, type SynchronizationPreview, type SynchronizationResult } from "@workspace/domain/onlineSchema";
 import { WorkspaceCountsSchema, WorkspacePreviewSchema, WorkspaceRestoreResultSchema, type WorkspaceCounts, type WorkspaceRestoreResult } from "@workspace/domain/workspacePackageSchema";
 import { z } from "zod";
-import type { createDesktopOnlineApi } from "./desktopOnlineApi";
 
-type RemoteApi = ReturnType<typeof createDesktopOnlineApi>;
+type RemoteApi = {
+  downloadWorkspace(): Promise<{ blob: Blob; revision: number; fileName: string }>;
+  request(path: string, init?: RequestInit, expectedRevision?: number): Promise<unknown>;
+};
 type LocalSelection = { kind: "offline" } | { kind: "working_copy"; accountId: string };
 const LocalSynchronizationPreviewSchema = WorkspacePreviewSchema.extend({
   target: z.enum(["offline", "online"]),

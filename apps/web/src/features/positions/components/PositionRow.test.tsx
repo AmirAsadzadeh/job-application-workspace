@@ -1,9 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { openExternalUrl } from "../../../desktop/desktopBridge";
+import { openExternalUrl } from "../../../browser/browserActions";
 import { PositionRow } from "./PositionRow";
 
-vi.mock("../../../desktop/desktopBridge", () => ({ openExternalUrl: vi.fn() }));
+vi.mock("../../../browser/browserActions", () => ({ openExternalUrl: vi.fn() }));
 
 describe("PositionRow company logo", () => {
   it("loads a remote logo and falls back without changing the logo container", () => {

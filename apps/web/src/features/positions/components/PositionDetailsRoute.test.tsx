@@ -158,7 +158,7 @@ describe("PositionDetailsRoute", () => {
     expect(screen.queryByRole("heading", { name: "Readiness" })).not.toBeInTheDocument();
     expect(screen.queryByText("Job description")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add question" }));
-    fireEvent.change(screen.getByLabelText("Question title"), { target: { value: "Draft" } });
+    fireEvent.change(await screen.findByLabelText("Question title"), { target: { value: "Draft" } });
     fireEvent.click(screen.getByRole("button", { name: "Back to positions" }));
     expect(onBack).not.toHaveBeenCalled();
   });

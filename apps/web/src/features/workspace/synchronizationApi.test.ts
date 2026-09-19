@@ -17,7 +17,7 @@ describe("synchronization orchestration", () => {
   it("confirms local-to-Online replacement and refreshes the account working copy", async () => {
     const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.includes("/export?source=offline")) return new Response(new Blob(["local"]), { status: 200, headers: { "content-type": "application/zip" } });
+      if (url.includes("/export?source=offline")) return new Response(new TextEncoder().encode("local"), { status: 200, headers: { "content-type": "application/zip" } });
       if (url.includes("/local/import?") && init?.method === "PUT") return Response.json({ ...localPreview, target: "online", destination: { revision: null, updatedAt: "2026-09-10T09:00:00.000Z", counts } });
       if (url.includes("/restore?") && init?.method === "POST") return Response.json({ restored: true });
       throw new Error(`Unexpected local request: ${url}`);

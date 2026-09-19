@@ -7,7 +7,6 @@
     "apps/web",
     "apps/api",
     "apps/local-service",
-    "apps/desktop",
     "packages/domain"
   ],
   "engines": {
@@ -17,15 +16,8 @@
     "dev": "tsx watch apps/local-service/src/cli.ts",
     "build": "tsc -b && vite build apps/web",
     "build:online": "tsc -b && vite build apps/web --mode online",
-    "build:sidecar": "node scripts/build-sidecar.mjs",
-    "desktop:prepare": "npm run build && npm run build:sidecar",
     "start": "tsx apps/local-service/src/cli.ts --production",
     "preview": "tsx apps/local-service/src/cli.ts --production",
-    "tauri": "tauri",
-    "tauri:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tauri.ps1 dev",
-    "tauri:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tauri.ps1 build",
-    "tauri:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tauri.ps1 check",
-    "tauri:test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-tauri.ps1 test",
     "test": "vitest run --config vitest.config.ts --configLoader native",
     "test:watch": "vitest --config vitest.config.ts --configLoader native",
     "test:performance": "vitest run --config vitest.config.ts --configLoader native apps/local-service/src/positionsPerformance.test.ts apps/web/src/features/positions/components/PositionList.performance.test.tsx"
@@ -35,11 +27,6 @@
     "@dnd-kit/dom": "^0.5.0",
     "@dnd-kit/helpers": "^0.5.0",
     "@dnd-kit/react": "^0.5.0",
-    "@tauri-apps/api": "^2.11.1",
-    "@tauri-apps/plugin-dialog": "^2.7.3",
-    "@tauri-apps/plugin-fs": "^2.5.2",
-    "@tauri-apps/plugin-opener": "^2.5.5",
-    "@tauri-apps/plugin-shell": "^2.3.6",
     "@tiptap/extension-code-block-lowlight": "^3.31.3",
     "@tiptap/pm": "^3.31.3",
     "@tiptap/react": "^3.31.3",
@@ -57,7 +44,6 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.11.4",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^26.4.1",
@@ -66,7 +52,6 @@
     "@types/yauzl": "^3.4.0",
     "esbuild": "^0.28.2",
     "jsdom": "^29.1.1",
-    "postject": "^1.0.0-alpha.6",
     "tsx": "^4.23.13",
     "vitest": "^5.0.0"
   }

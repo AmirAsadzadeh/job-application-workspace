@@ -1,18 +1,25 @@
 node_modules/
 dist/
 desktop-resources/
-apps/desktop/src-tauri/target/
-apps/desktop/src-tauri/gen/schemas/
-apps/desktop/src-tauri/binaries/*
-!apps/desktop/src-tauri/binaries/README.md
-build/sidecar*
 artifacts/
 design-qa.md
+interview-bank/
+output/
+repos/
+research/
+resume/
+tmp/
+RESUME_DEFENSE_HANDOFF.md
+resume-technical-recruiter-review-fa.txt
 
 .npm-cache/
 .uv-cache/
 .uv-python/
 .uv-tools/
+.argos-cache/
+.argos-config/
+.argos-data/
+.venv-argos/
 
 *.tsbuildinfo
 *.log
@@ -23,6 +30,8 @@ design-qa.md
 # Private workspace data
 data/positions.json
 data/reference-data.json
+data/offline/
+data/.migration-backups/
 data/resumes/
 data/backups/
 data/.workspace-transfer/

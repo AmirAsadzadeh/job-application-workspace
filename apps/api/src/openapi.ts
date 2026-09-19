@@ -10,7 +10,6 @@ export async function registerOpenApi(server: FastifyInstance) {
       components: {
         securitySchemes: {
           sessionCookie: { type: "apiKey", in: "cookie", name: "better-auth.session_token" },
-          desktopBearer: { type: "http", scheme: "bearer" },
         },
       },
     },
