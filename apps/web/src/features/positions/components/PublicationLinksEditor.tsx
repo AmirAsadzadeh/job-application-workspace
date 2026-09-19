@@ -1,5 +1,5 @@
 import { ExternalLink, Link2, Trash2 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { localDateString } from "@workspace/domain/positionSchema";
 import {
   applicationChannelStatuses,
@@ -50,11 +50,13 @@ export function PublicationLinksEditor({ links, careerPageUrl, careerPageApplica
   const today = localDateString(new Date());
   const previousCount = useRef(links.length);
   const lastPlatformRef = useRef<HTMLInputElement>(null);
+  const [careerPageEnabled, setCareerPageEnabled] = useState(Boolean(careerPageUrl));
 
   useEffect(() => {
     if (links.length > previousCount.current) lastPlatformRef.current?.focus();
     previousCount.current = links.length;
   }, [links.length]);
+  useEffect(() => { if (careerPageUrl) setCareerPageEnabled(true); }, [careerPageUrl]);
 
   const addPlatform = () => onLinksChange([...links, { platformName: "", url: "", applicationStatus: null, applicationDate: null }]);
 
@@ -99,6 +101,18 @@ export function PublicationLinksEditor({ links, careerPageUrl, careerPageApplica
     onCareerPageChange(url, careerPageApplicationStatus, careerPageApplicationDate);
   }
 
+  function updateCareerPageMode(value: string) {
+    if (value === "career_page") {
+      setCareerPageEnabled(true);
+      return;
+    }
+    if (careerPageUrl || careerPageApplicationStatus || careerPageApplicationDate) {
+      if (!window.confirm("Clear the career page and its application tracking details?")) return;
+    }
+    setCareerPageEnabled(false);
+    onCareerPageChange(null, null, null);
+  }
+
   return (
     <fieldset className="publication-editor">
       <legend>Publication links</legend>
@@ -117,9 +131,10 @@ export function PublicationLinksEditor({ links, careerPageUrl, careerPageApplica
         {links.length ? <button className="secondary-button add-link" type="button" onClick={addPlatform}>Add platform</button> : <EmptyState icon={Link2} message="No job platforms added" actionLabel="Add platform" onAction={addPlatform} />}
       </div>
       <div className="career-page-grid">
-        <div className="career-page-field url-field-with-action"><label>Organization career-page URL<input aria-label="Organization career-page URL" inputMode="url" value={careerPageUrl ?? ""} onChange={(event) => updateCareerUrl(event.target.value)} /></label><ExternalUrlAction value={careerPageUrl} label="Open organization career page" /></div>
-        <label>Career-page status<select aria-label="Career-page application status" value={careerPageApplicationStatus ?? ""} disabled={!careerPageUrl} onChange={(event) => updateCareerStatus(event.target.value)}><option value="">Untracked</option>{applicationChannelStatuses.map((value) => <option key={value} value={value}>{applicationChannelStatusLabels[value]}</option>)}</select></label>
-        <label>Application date<input aria-label="Career-page application date" type="date" max={today} disabled={!careerPageUrl} value={careerPageApplicationDate ?? ""} onChange={(event) => onCareerPageChange(careerPageUrl, careerPageApplicationStatus, event.target.value || null)} /></label>
+        <label>Career page<select aria-label="Career-page availability" value={careerPageEnabled ? "career_page" : "no_career_page"} onChange={(event) => updateCareerPageMode(event.target.value)}><option value="no_career_page">No career page</option><option value="career_page">Career page</option></select></label>
+        <div className="career-page-field url-field-with-action"><label>Organization career-page URL<input aria-label="Organization career-page URL" inputMode="url" disabled={!careerPageEnabled} value={careerPageEnabled ? careerPageUrl ?? "" : ""} onChange={(event) => updateCareerUrl(event.target.value)} /></label><ExternalUrlAction value={careerPageUrl} label="Open organization career page" /></div>
+        <label>Career-page status<select aria-label="Career-page application status" value={careerPageApplicationStatus ?? ""} disabled={!careerPageEnabled || !careerPageUrl} onChange={(event) => updateCareerStatus(event.target.value)}><option value="">Untracked</option>{applicationChannelStatuses.map((value) => <option key={value} value={value}>{applicationChannelStatusLabels[value]}</option>)}</select></label>
+        <label>Application date<input aria-label="Career-page application date" type="date" max={today} disabled={!careerPageEnabled || !careerPageUrl} value={careerPageApplicationDate ?? ""} onChange={(event) => onCareerPageChange(careerPageUrl, careerPageApplicationStatus, event.target.value || null)} /></label>
       </div>
       {(errors.careerPageUrl || errors.careerPageApplicationDate || errors.careerPageApplicationStatus) && <p className="field-error" role="alert">{errors.careerPageApplicationDate ?? errors.careerPageApplicationStatus ?? errors.careerPageUrl}</p>}
     </fieldset>

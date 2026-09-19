@@ -1,7 +1,7 @@
 import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
 import { isSortableOperation } from "@dnd-kit/react/sortable";
 import { ArrowDown, ArrowUp, Briefcase, Download, FolderOpen, List, Plus, RotateCw, Search, SearchX, Upload } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_LIST_VIEW, type ListViewPreference, type SortColumn } from "@workspace/domain/positionSchema";
 import { positionApi } from "../positionApi";
 import { nextSortPreference, sortPositions } from "../positionSort";
@@ -162,12 +162,16 @@ export function PositionList({ onOpen, onCreate = () => undefined, api = positio
             const active = listView.mode === "column" && listView.column === key;
             const nextDirection = active && listView.direction === "asc" ? "descending" : "ascending";
             return (
-              <button key={key} type="button" aria-label={`Sort ${label} ${nextDirection}`} aria-pressed={active} onClick={() => void saveListView(nextSortPreference(listView, key))} disabled={saving}>
+              <Fragment key={key}>
+              <button type="button" aria-label={`Sort ${label} ${nextDirection}`} aria-pressed={active} onClick={() => void saveListView(nextSortPreference(listView, key))} disabled={saving}>
                 <span>{label}</span>
                 {active && (listView.direction === "asc" ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" />)}
               </button>
+              {key === "status" && <span className="career-page-header">Career</span>}
+              </Fragment>
             );
           })}
+          <span className="open-job-header">Open</span>
         </div>
         {state === "loading" && <div className="notice" role="status">Loading positions...</div>}
         {state === "error" && <div className="notice error-notice"><strong>Could not load positions</strong><button type="button" onClick={() => setReload((value) => value + 1)}><RotateCw size={14} /> Retry</button></div>}

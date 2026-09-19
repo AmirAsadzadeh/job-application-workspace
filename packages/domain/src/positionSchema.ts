@@ -262,6 +262,26 @@ export const ReadingItemSchema = ReadingItemInputSchema.extend({
   updatedAt: z.string().datetime(),
 }).strict();
 
+const normalizedTag = z.string().trim().min(1, "Enter a tag.").max(48, "Tags must be 48 characters or shorter.");
+
+const ReadinessArticleInputBaseSchema = z.object({
+  title: z.string().trim().min(1, "Enter an article question."),
+  teamId: optionalId,
+  tags: z.array(normalizedTag).max(100, "Use 100 tags or fewer."),
+  answer: QuestionAnswerDocumentSchema,
+}).strict();
+
+export const ReadinessArticleInputSchema = ReadinessArticleInputBaseSchema.transform((article) => ({
+  ...article,
+  tags: Array.from(new Set(article.tags.map((tag) => tag.trim()).filter(Boolean))),
+}));
+
+export const ReadinessArticleSchema = ReadinessArticleInputBaseSchema.extend({
+  id: z.string().trim().min(1),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+}).strict();
+
 export const SubmittedResumeSchema = z.discriminatedUnion("fileType", [
   z.object({
     originalFileName: z.string().trim().min(1),
@@ -371,6 +391,9 @@ export const PositionSummarySchema = z.object({
   status: PositionStatusSchema,
   workMode: WorkModeSchema,
   seniority: SenioritySchema,
+  jobPostingUrl: webUrl.nullable().optional(),
+  careerPageUrl: webUrl.nullable().optional(),
+  careerPageApplicationStatus: ApplicationChannelStatusSchema.nullable().optional(),
   updatedAt: z.string().datetime(),
 }).strict();
 
@@ -388,6 +411,7 @@ export const PositionsDocumentSchema = withUniquePositionIds(z.object({
   version: z.literal(DATA_VERSION),
   listView: ListViewPreferenceSchema,
   positions: z.array(PositionSchema),
+  readinessArticles: z.array(ReadinessArticleSchema).default([]),
 }).strict());
 
 export const VersionFivePositionsDocumentSchema = withUniquePositionIds(z.object({
@@ -430,23 +454,6 @@ export const ReferenceDataSchema = z.object({
   locations: z.array(LocationSchema),
 });
 
-export const PositionDetailsUpdateSchema = z.object({
-  status: PositionStatusSchema,
-  departmentId: optionalId,
-  teamId: optionalId,
-  locationId: optionalId,
-  hiringManager: HiringManagerSchema,
-  jobPlatformLinks: z.array(JobPlatformLinkSchema),
-  careerPageUrl: webUrl.nullable(),
-  careerPageApplicationStatus: ApplicationChannelStatusSchema.nullable(),
-  careerPageApplicationDate: ApplicationDateSchema.nullable(),
-  description: RichTextDocumentSchema,
-}).strict().superRefine((position, context) => {
-  if (!position.careerPageUrl && (position.careerPageApplicationStatus || position.careerPageApplicationDate)) {
-    context.addIssue({ code: "custom", path: ["careerPageApplicationStatus"], message: "A career page URL is required for application tracking." });
-  }
-});
-
 const base64Payload = z.string()
   .max(MAX_LOGO_BASE64_LENGTH, "Logo must be 2 MB or smaller.")
   .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/, "Logo data is invalid.");
@@ -461,6 +468,42 @@ export const CompanyLogoInputSchema = z.discriminatedUnion("kind", [
     dataBase64: base64Payload,
   }).strict(),
 ]);
+
+export const CompanyLogoUpdateInputSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("existing"), logoPath: localLogoPath }).strict(),
+  z.object({ kind: z.literal("none") }).strict(),
+  z.object({ kind: z.literal("remote"), url: webUrl }).strict(),
+  z.object({
+    kind: z.literal("upload"),
+    fileName: z.string().trim().min(1),
+    mediaType: z.enum(["image/png", "image/jpeg", "image/svg+xml"]),
+    dataBase64: base64Payload,
+  }).strict(),
+]);
+
+export const PositionDetailsUpdateSchema = z.object({
+  companyName: z.string().trim().min(1, "Enter a company name.").optional(),
+  companyLogo: CompanyLogoUpdateInputSchema.optional(),
+  title: z.string().trim().min(1, "Enter a position name.").optional(),
+  status: PositionStatusSchema,
+  workMode: WorkModeSchema.optional(),
+  employmentType: EmploymentTypeSchema.optional(),
+  seniority: SenioritySchema.optional(),
+  departmentId: optionalId,
+  teamId: optionalId,
+  locationId: optionalId,
+  hiringManager: HiringManagerSchema,
+  salary: SalarySchema.optional(),
+  jobPlatformLinks: z.array(JobPlatformLinkSchema),
+  careerPageUrl: webUrl.nullable(),
+  careerPageApplicationStatus: ApplicationChannelStatusSchema.nullable(),
+  careerPageApplicationDate: ApplicationDateSchema.nullable(),
+  description: RichTextDocumentSchema,
+}).strict().superRefine((position, context) => {
+  if (!position.careerPageUrl && (position.careerPageApplicationStatus || position.careerPageApplicationDate)) {
+    context.addIssue({ code: "custom", path: ["careerPageApplicationStatus"], message: "A career page URL is required for application tracking." });
+  }
+});
 
 export const CreatePositionInputSchema = z.object({
   companyName: z.string().trim().min(1, "Enter a company name."),
@@ -622,6 +665,7 @@ export type Company = z.infer<typeof CompanySchema>;
 export type HiringManager = z.infer<typeof HiringManagerSchema>;
 export type Salary = z.infer<typeof SalarySchema>;
 export type CompanyLogoInput = z.infer<typeof CompanyLogoInputSchema>;
+export type CompanyLogoUpdateInput = z.infer<typeof CompanyLogoUpdateInputSchema>;
 export type CreatePositionInput = z.infer<typeof CreatePositionInputSchema>;
 export type JobPlatformLink = z.infer<typeof JobPlatformLinkSchema>;
 export type Position = z.infer<typeof PositionSchema>;
@@ -638,4 +682,6 @@ export type PositionQuestionInput = z.infer<typeof PositionQuestionInputSchema>;
 export type PositionQuestion = z.infer<typeof PositionQuestionSchema>;
 export type ReadingItemInput = z.infer<typeof ReadingItemInputSchema>;
 export type ReadingItem = z.infer<typeof ReadingItemSchema>;
+export type ReadinessArticleInput = z.infer<typeof ReadinessArticleInputSchema>;
+export type ReadinessArticle = z.infer<typeof ReadinessArticleSchema>;
 export type SubmittedResume = z.infer<typeof SubmittedResumeSchema>;

@@ -78,6 +78,18 @@ describe("PositionDetailsRoute", () => {
     expect(screen.getByText("A")).toBeInTheDocument();
   });
 
+  it("edits the company logo from the existing position screen", async () => {
+    const updatePosition = vi.fn().mockResolvedValue({ ...position, company: { ...position.company, logoUrl: "https://example.test/logo.png" } });
+    render(<PositionDetailsRoute positionId="p1" section="application" onBack={() => undefined} api={{ getPosition: vi.fn().mockResolvedValue(position), getReferenceData: vi.fn().mockResolvedValue(referenceData), updatePosition }} />);
+    await screen.findByLabelText("Overall status");
+    fireEvent.click(screen.getByRole("button", { name: "Image URL" }));
+    fireEvent.change(screen.getByLabelText("Company logo image URL"), { target: { value: "https://example.test/logo.png" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(updatePosition).toHaveBeenCalledWith("p1", expect.objectContaining({
+      companyLogo: { kind: "remote", url: "https://example.test/logo.png" },
+    })));
+  });
+
   it("edits overall status and adopts the authoritative advanced response", async () => {
     const updatePosition = vi.fn().mockResolvedValue({ ...position, status: "applied" });
     render(<PositionDetailsRoute positionId="p1" onBack={() => undefined} api={{ getPosition: vi.fn().mockResolvedValue({ ...position, status: "saved" }), getReferenceData: vi.fn().mockResolvedValue(referenceData), updatePosition }} />);
@@ -94,14 +106,12 @@ describe("PositionDetailsRoute", () => {
     expect(screen.getByRole("button", { name: "Overall status definitions" })).toBeInTheDocument();
   });
 
-  it("places the submitted resume on Application and not Readiness", async () => {
+  it("places the submitted resume on Application and removes per-position Readiness", async () => {
     const sharedApi = { getPosition: vi.fn().mockResolvedValue(position), getReferenceData: vi.fn().mockResolvedValue(referenceData), updatePosition: vi.fn() };
     const application = render(<PositionDetailsRoute positionId="p1" section="application" onBack={() => undefined} api={sharedApi} />);
     expect(await screen.findByRole("heading", { name: "Submitted resume" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Readiness/ })).not.toBeInTheDocument();
     application.unmount();
-    render(<PositionDetailsRoute positionId="p1" section="readiness" onBack={() => undefined} api={sharedApi} />);
-    expect(await screen.findByRole("heading", { name: "Readiness" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Submitted resume" })).not.toBeInTheDocument();
   });
 
   it("provides inner-page navigation and expands an empty hiring manager", async () => {
@@ -115,6 +125,15 @@ describe("PositionDetailsRoute", () => {
     expect(screen.getByText("No hiring manager added")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add manager" }));
     expect(screen.getByLabelText("Hiring manager name")).toHaveFocus();
+  });
+
+  it("previews the job description before opening the rich text editor", async () => {
+    render(<PositionDetailsRoute positionId="p1" section="role-details" onBack={() => undefined} api={{ getPosition: vi.fn().mockResolvedValue(position), getReferenceData: vi.fn().mockResolvedValue(referenceData), updatePosition: vi.fn() }} />);
+    expect(await screen.findByText("Build useful things.")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Job description" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Edit description" }));
+    expect(await screen.findByRole("textbox", { name: "Job description" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview description" })).toBeInTheDocument();
   });
 
   it("guards inner-page navigation and discards confirmed position edits", async () => {

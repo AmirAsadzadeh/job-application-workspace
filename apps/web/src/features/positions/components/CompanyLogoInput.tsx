@@ -1,12 +1,14 @@
 import { Image, Link2, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
-import { MAX_LOGO_BYTES, type CompanyLogoInput } from "@workspace/domain/positionSchema";
+import { MAX_LOGO_BYTES, type CompanyLogoInput, type CompanyLogoUpdateInput } from "@workspace/domain/positionSchema";
+
+type EditableCompanyLogoInput = CompanyLogoInput | CompanyLogoUpdateInput;
 
 type Props = {
-  value: CompanyLogoInput;
+  value: EditableCompanyLogoInput;
   companyName: string;
   error?: string;
-  onChange: (value: CompanyLogoInput) => void;
+  onChange: (value: EditableCompanyLogoInput) => void;
   onError: (message: string) => void;
 };
 
@@ -24,7 +26,9 @@ function readBase64(file: File) {
 export function CompanyLogoInput({ value, companyName, error, onChange, onError }: Props) {
   const [imageFailed, setImageFailed] = useState(false);
   const initial = companyName.trim().charAt(0).toLocaleUpperCase() || "?";
-  const source = value.kind === "remote"
+  const source = value.kind === "existing"
+    ? value.logoPath
+    : value.kind === "remote"
     ? value.url
     : value.kind === "upload" && value.dataBase64
       ? `data:${value.mediaType};base64,${value.dataBase64}`
@@ -59,6 +63,7 @@ export function CompanyLogoInput({ value, companyName, error, onChange, onError 
           {source && !imageFailed ? <img src={source} alt="" onError={() => setImageFailed(true)} /> : initial}
         </span>
         <div className="logo-modes" aria-label="Company logo source">
+          {value.kind === "existing" && <button type="button" className="active" aria-pressed="true"><Image size={14} /> Current</button>}
           <button type="button" className={value.kind === "none" ? "active" : ""} aria-pressed={value.kind === "none"} onClick={() => { onError(""); onChange({ kind: "none" }); }}><Image size={14} /> None</button>
           <button type="button" className={value.kind === "upload" ? "active" : ""} aria-pressed={value.kind === "upload"} onClick={() => { onError(""); onChange({ kind: "upload", fileName: "", mediaType: "image/png", dataBase64: "" }); }}><Upload size={14} /> Upload</button>
           <button type="button" className={value.kind === "remote" ? "active" : ""} aria-pressed={value.kind === "remote"} onClick={() => { onError(""); onChange({ kind: "remote", url: "" }); }}><Link2 size={14} /> Image URL</button>

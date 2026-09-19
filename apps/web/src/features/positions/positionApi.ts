@@ -1,4 +1,4 @@
-import { ListViewPreferenceSchema, PositionSchema, PositionSummarySchema, ReferenceDataSchema, type CreatePositionInput, type ListViewPreference, type PositionDetailsUpdate, type PositionQuestionInput, type PositionStatus, type ReadingItemInput, type ReorderPositionInput } from "@workspace/domain/positionSchema";
+import { ListViewPreferenceSchema, PositionSchema, PositionSummarySchema, ReadinessArticleSchema, ReferenceDataSchema, type CreatePositionInput, type ListViewPreference, type PositionDetailsUpdate, type PositionQuestionInput, type PositionStatus, type ReadinessArticleInput, type ReadingItemInput, type ReorderPositionInput } from "@workspace/domain/positionSchema";
 import { WorkspacePreviewSchema, WorkspaceRestoreResultSchema } from "@workspace/domain/workspacePackageSchema";
 
 export type PositionApiIssue = { path: string; message: string };
@@ -86,6 +86,26 @@ export async function deleteReading(positionId: string, readingId: string) {
   return PositionSchema.parse(body.position);
 }
 
+export async function listReadinessArticles() {
+  const body = await requestJson("/api/readiness/articles");
+  return ReadinessArticleSchema.array().parse(body.articles);
+}
+
+export async function createReadinessArticle(input: ReadinessArticleInput) {
+  const body = await requestJson("/api/readiness/articles", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+  return ReadinessArticleSchema.array().parse(body.articles);
+}
+
+export async function updateReadinessArticle(articleId: string, input: ReadinessArticleInput) {
+  const body = await requestJson(`/api/readiness/articles/${encodeURIComponent(articleId)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+  return ReadinessArticleSchema.array().parse(body.articles);
+}
+
+export async function deleteReadinessArticle(articleId: string) {
+  const body = await requestJson(`/api/readiness/articles/${encodeURIComponent(articleId)}`, { method: "DELETE" });
+  return ReadinessArticleSchema.array().parse(body.articles);
+}
+
 export async function uploadResume(positionId: string, file: File) {
   const body = await requestJson(`/api/positions/${encodeURIComponent(positionId)}/readiness/resume`, {
     method: "PUT",
@@ -137,4 +157,4 @@ export async function restoreWorkspaceImport(importId: string) {
   return WorkspaceRestoreResultSchema.parse(await requestJson(`/api/workspace/import/${encodeURIComponent(importId)}/restore`, { method: "POST" }));
 }
 
-export const positionApi = { listPositions, updateListView, reorderPosition, getPosition, getReferenceData, createPosition, updatePosition, createQuestion, updateQuestion, deleteQuestion, createReading, updateReading, deleteReading, uploadResume, getResumeOpenUrl, checkResumeAvailability, removeResume, exportWorkspace, validateWorkspaceImport, cancelWorkspaceImport, restoreWorkspaceImport };
+export const positionApi = { listPositions, updateListView, reorderPosition, getPosition, getReferenceData, createPosition, updatePosition, createQuestion, updateQuestion, deleteQuestion, createReading, updateReading, deleteReading, listReadinessArticles, createReadinessArticle, updateReadinessArticle, deleteReadinessArticle, uploadResume, getResumeOpenUrl, checkResumeAvailability, removeResume, exportWorkspace, validateWorkspaceImport, cancelWorkspaceImport, restoreWorkspaceImport };

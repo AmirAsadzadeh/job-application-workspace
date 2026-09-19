@@ -7,6 +7,7 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../.
 startServer({
   projectRoot: resolve(repositoryRoot, "apps/web"),
   workspacePath: resolve(repositoryRoot, "data"),
+  resourcesPath: resolve(repositoryRoot, "data"),
 }).catch((error) => {
   console.error(error);
   process.exitCode = 1;

@@ -2,12 +2,12 @@ import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Bold, Code, FileCode2, Heading1, Heading2, Heading3, Italic, Link, List, ListOrdered, Unlink } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { QuestionAnswerDocumentSchema } from "@workspace/domain/positionSchema";
 import { questionCodeLanguageLabels, questionCodeLanguages, type QuestionAnswerDocument, type QuestionCodeLanguage } from "../positionTypes";
 import { defaultQuestionCodeLanguage, questionLowlight } from "./questionCodeLanguages";
 
-type Props = { value: QuestionAnswerDocument; onChange: (value: QuestionAnswerDocument) => void };
+type Props = { value: QuestionAnswerDocument; onChange: (value: QuestionAnswerDocument) => void; onModSave?: () => void };
 
 export function normalizeQuestionAnswer(value: unknown): QuestionAnswerDocument {
   const cleanNode = (node: any): any => {
@@ -22,7 +22,9 @@ export function normalizeQuestionAnswer(value: unknown): QuestionAnswerDocument 
   return QuestionAnswerDocumentSchema.parse(cleanNode(value));
 }
 
-export function PositionQuestionAnswerEditor({ value, onChange }: Props) {
+export function PositionQuestionAnswerEditor({ value, onChange, onModSave }: Props) {
+  const modSaveRef = useRef(onModSave);
+  modSaveRef.current = onModSave;
   const editor = useEditor({
     immediatelyRender: false,
     shouldRerenderOnTransaction: true,
@@ -31,8 +33,19 @@ export function PositionQuestionAnswerEditor({ value, onChange }: Props) {
       StarterKit.configure({ blockquote: false, codeBlock: false, horizontalRule: false, strike: false, underline: false, heading: { levels: [1, 2, 3] }, link: { openOnClick: false, autolink: true, defaultProtocol: "https" } }),
       CodeBlockLowlight.configure({ lowlight: questionLowlight, defaultLanguage: defaultQuestionCodeLanguage }),
     ],
-    onUpdate: ({ editor: current }) => onChange(normalizeQuestionAnswer(current.getJSON())),
-    editorProps: { attributes: { class: "question-answer-content", role: "textbox", "aria-label": "Answer", "aria-multiline": "true" } },
+    onUpdate: ({ editor: current }: { editor: { getJSON: () => unknown } }) => onChange(normalizeQuestionAnswer(current.getJSON())),
+    editorProps: {
+      attributes: { class: "question-answer-content", dir: "auto", role: "textbox", "aria-label": "Answer", "aria-multiline": "true" },
+      handleKeyDown: (_view: unknown, event: KeyboardEvent) => {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "s") {
+          if (!modSaveRef.current) return false;
+          event.preventDefault();
+          modSaveRef.current();
+          return true;
+        }
+        return false;
+      },
+    },
   });
 
   useEffect(() => {

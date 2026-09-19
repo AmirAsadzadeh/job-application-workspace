@@ -51,6 +51,17 @@ describe("PublicationLinksEditor", () => {
     expect(confirm).toHaveBeenCalledTimes(2);
   });
 
+  it("explicitly supports positions with no career page", () => {
+    const onCareerPageChange = vi.fn();
+    render(<PublicationLinksEditor links={[]} careerPageUrl={null} careerPageApplicationStatus={null} careerPageApplicationDate={null} onLinksChange={vi.fn()} onCareerPageChange={onCareerPageChange} />);
+    expect(screen.getByLabelText("Career-page availability")).toHaveValue("no_career_page");
+    expect(screen.getByLabelText("Organization career-page URL")).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Career-page availability"), { target: { value: "career_page" } });
+    expect(screen.getByLabelText("Organization career-page URL")).toBeEnabled();
+    fireEvent.change(screen.getByLabelText("Organization career-page URL"), { target: { value: "https://example.com/careers" } });
+    expect(onCareerPageChange).toHaveBeenCalledWith("https://example.com/careers", null, null);
+  });
+
   it("shows all channel definitions on demand", () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "Channel status definitions" }));

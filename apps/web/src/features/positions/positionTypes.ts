@@ -23,6 +23,8 @@ export type {
   QuestionCodeLanguage,
   ReadingItem,
   ReadingItemInput,
+  ReadinessArticle,
+  ReadinessArticleInput,
   SubmittedResume,
   Team,
   WorkMode,

@@ -10,6 +10,9 @@ vi.mock("../features/positions/components/PositionDetailsRoute", () => ({
 vi.mock("../features/positions/components/PositionCreateRoute", () => ({
   PositionCreateRoute: ({ onBack, onCreated, onDirtyChange }: { onBack: () => void; onCreated: () => void; onDirtyChange: (dirty: boolean) => void }) => <><span>Create route</span><button onClick={() => onDirtyChange(true)}>Make dirty</button><button onClick={onBack}>Create back</button><button onClick={onCreated}>Created</button></>,
 }));
+vi.mock("../features/positions/components/ReadinessRoute", () => ({
+  ReadinessRoute: ({ articleId, onBack, onOpenArticle }: { articleId?: string; onBack: () => void; onOpenArticle?: (id: string) => void }) => <><span>{articleId ? `Readiness article ${articleId}` : "Global readiness"}</span><button onClick={() => onOpenArticle?.("a1")}>Open article</button><button onClick={onBack}>Readiness back</button></>,
+}));
 
 import { App } from "./App";
 
@@ -33,14 +36,29 @@ describe("App routing", () => {
     expect(window.location.pathname).toBe("/positions/p1/questions");
   });
 
-  it("opens legacy and direct section URLs", () => {
+  it("opens legacy detail and top-level readiness URLs", () => {
     window.history.replaceState({}, "", "/positions/p1");
     const { unmount } = render(<App />);
     expect(screen.getByText("Detail p1 application")).toBeInTheDocument();
     unmount();
     window.history.replaceState({}, "", "/positions/p1/readiness");
+    const legacy = render(<App />);
+    expect(screen.getByText("Global readiness")).toBeInTheDocument();
+    legacy.unmount();
+    window.history.replaceState({}, "", "/readiness");
     render(<App />);
-    expect(screen.getByText("Detail p1 readiness")).toBeInTheDocument();
+    expect(screen.getByText("Global readiness")).toBeInTheDocument();
+  });
+
+  it("opens dedicated readiness article routes", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Readiness" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open article" }));
+    expect(window.location.pathname).toBe("/readiness/articles/a1");
+    expect(screen.getByText("Readiness article a1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Readiness back" }));
+    expect(window.location.pathname).toBe("/readiness");
+    expect(screen.getByText("Global readiness")).toBeInTheDocument();
   });
 
   it("guards dirty internal navigation and allows confirmed discard", () => {

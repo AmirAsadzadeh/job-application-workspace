@@ -15,8 +15,8 @@
   },
   "scripts": {
     "dev": "tsx watch apps/local-service/src/cli.ts",
-    "build": "tsc -b && vite build apps/web --configLoader native",
-    "build:online": "tsc -b && vite build apps/web --configLoader native --mode online",
+    "build": "tsc -b && vite build apps/web",
+    "build:online": "tsc -b && vite build apps/web --mode online",
     "build:sidecar": "node scripts/build-sidecar.mjs",
     "desktop:prepare": "npm run build && npm run build:sidecar",
     "start": "tsx apps/local-service/src/cli.ts --production",

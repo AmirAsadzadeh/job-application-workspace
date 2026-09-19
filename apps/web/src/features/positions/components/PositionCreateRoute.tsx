@@ -165,7 +165,10 @@ export function PositionCreateRoute({ onBack, onCreated, onDirtyChange = () => u
       onCreated();
     } catch (error) {
       if (error instanceof PositionApiError && error.issues.length) {
-        const nextErrors = Object.fromEntries(error.issues.map((issue) => [issue.path, issue.message]));
+        const nextErrors = Object.fromEntries(error.issues.map((issue) => {
+          const root = issue.path.split(".")[0] || issue.path;
+          return [root, issue.message];
+        }));
         setErrors(nextErrors);
         focusFirstError(nextErrors);
       }
@@ -193,7 +196,7 @@ export function PositionCreateRoute({ onBack, onCreated, onDirtyChange = () => u
             <label data-field="workMode"><span>Work mode <span className="required-label">Required</span></span><select value={form.workMode} onChange={(event) => change({ ...form, workMode: event.target.value })} aria-invalid={Boolean(errors.workMode)}><option value="">Select</option>{workModes.map((value) => <option key={value} value={value}>{workModeLabels[value]}</option>)}</select>{errors.workMode && <span className="field-error" role="alert">{errors.workMode}</span>}</label>
             <label data-field="seniority"><span>Seniority <span className="required-label">Required</span></span><select value={form.seniority} onChange={(event) => change({ ...form, seniority: event.target.value })} aria-invalid={Boolean(errors.seniority)}><option value="">Select</option>{seniorities.map((value) => <option key={value} value={value}>{value}</option>)}</select>{errors.seniority && <span className="field-error" role="alert">{errors.seniority}</span>}</label>
             <label>Employment type<select value={form.employmentType} onChange={(event) => change({ ...form, employmentType: event.target.value as EmploymentType })}>{employmentTypes.map((value) => <option key={value} value={value}>{employmentTypeLabels[value]}</option>)}</select></label>
-            <CompanyLogoInput value={form.companyLogo} companyName={form.companyName} error={errors.companyLogo} onChange={(companyLogo) => change({ ...form, companyLogo })} onError={(message) => setErrors((current) => ({ ...current, companyLogo: message }))} />
+            <CompanyLogoInput value={form.companyLogo} companyName={form.companyName} error={errors.companyLogo} onChange={(companyLogo) => { if (companyLogo.kind !== "existing") change({ ...form, companyLogo }); }} onError={(message) => setErrors((current) => ({ ...current, companyLogo: message }))} />
           </div>
         </fieldset>
         <fieldset>
@@ -224,9 +227,10 @@ export function PositionCreateRoute({ onBack, onCreated, onDirtyChange = () => u
           {errors.salary && <p className="field-error" role="alert">{errors.salary}</p>}
         </fieldset>
         <PublicationLinksEditor links={form.jobPlatformLinks} careerPageUrl={form.careerPageUrl} careerPageApplicationStatus={form.careerPageApplicationStatus} careerPageApplicationDate={form.careerPageApplicationDate} errors={errors} onLinksChange={(jobPlatformLinks) => change({ ...form, jobPlatformLinks })} onCareerPageChange={(careerPageUrl, careerPageApplicationStatus, careerPageApplicationDate) => change({ ...form, careerPageUrl, careerPageApplicationStatus, careerPageApplicationDate })} />
-        <fieldset>
+        <fieldset data-field="description">
           <legend>Job description</legend>
-          <JobDescriptionEditor value={form.description} onChange={(description) => change({ ...form, description })} />
+          <JobDescriptionEditor value={form.description} onChange={(description) => change({ ...form, description })} onModSave={() => void save()} />
+          {errors.description && <p className="field-error" role="alert">{errors.description}</p>}
         </fieldset>
         <footer className="form-actions create-actions">
           <span className={`form-message ${saveState === "error" ? "error-text" : ""}`} role="status">{saveState === "error" ? "Could not create position. Your entries are still here." : ""}</span>

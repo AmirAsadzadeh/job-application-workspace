@@ -33,4 +33,13 @@ describe("CompanyLogoInput", () => {
     expect(onChange).toHaveBeenCalledWith({ kind: "remote", url: "" });
     expect(screen.getByRole("alert")).toHaveTextContent("Enter an HTTP or HTTPS address.");
   });
+
+  it("shows the retained saved logo in edit mode", () => {
+    const onChange = vi.fn();
+    render(<CompanyLogoInput value={{ kind: "existing", logoPath: "/company-logos/acme.svg" }} companyName="Acme" onChange={onChange} onError={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Current" })).toHaveAttribute("aria-pressed", "true");
+    expect(document.querySelector("img")).toHaveAttribute("src", "/company-logos/acme.svg");
+    fireEvent.click(screen.getByRole("button", { name: "None" }));
+    expect(onChange).toHaveBeenCalledWith({ kind: "none" });
+  });
 });

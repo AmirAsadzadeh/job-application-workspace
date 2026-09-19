@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { JobDescriptionEditor } from "./JobDescriptionEditor";
+import { cleanJobDescriptionDocument, JobDescriptionEditor, normalizeJobDescriptionPaste, normalizeJobDescriptionPasteHtml } from "./JobDescriptionEditor";
 
 const description = {
   type: "doc" as const,
@@ -29,6 +29,15 @@ describe("JobDescriptionEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Italic" }));
     fireEvent.click(screen.getByRole("button", { name: "Bullet list" }));
     expect(onChange).toHaveBeenCalled();
+  });
+
+  it("calls the save shortcut handler on Cmd+S and Ctrl+S inside the editor", async () => {
+    const onModSave = vi.fn();
+    render(<JobDescriptionEditor value={description} onChange={vi.fn()} onModSave={onModSave} />);
+    const editor = await screen.findByRole("textbox", { name: "Job description" });
+    fireEvent.keyDown(editor, { key: "s", metaKey: true });
+    fireEvent.keyDown(editor, { key: "S", ctrlKey: true });
+    expect(onModSave).toHaveBeenCalledTimes(2);
   });
 
   it("round-trips every supported format and accepts an empty document", async () => {
@@ -64,5 +73,36 @@ describe("JobDescriptionEditor", () => {
     fireEvent.paste(editor, { clipboardData: { getData: (type: string) => type === "text/html" ? "<p><u>Readable</u><script>hidden</script></p>" : "Readable", types: ["text/html", "text/plain"] } });
     expect(container.querySelector("u")).not.toBeInTheDocument();
     expect(container.querySelector("script")).not.toBeInTheDocument();
+  });
+
+  it("normalizes copied job descriptions with encoded entities and line-continuation slashes", () => {
+    expect(normalizeJobDescriptionPaste("Yo&#x75;**’**&#x6C;l leverage Next.js.\\\nSSR and SSG     optimizations.\n&#x20;Develop features.")).toBe(
+      "You**’**ll leverage Next.js.\nSSR and SSG optimizations.\nDevelop features.",
+    );
+    expect(normalizeJobDescriptionPaste("A&nbsp;B\u00a0C\u200b")).toBe("A B C");
+  });
+
+  it("normalizes pasted HTML job descriptions before TipTap parses them", () => {
+    expect(normalizeJobDescriptionPasteHtml("<p>**&#xA0;What you’ll do:**\\</p><p>\\- Build     apps.</p><script>bad()</script>")).toBe(
+      "<p>**What you’ll do:**</p><p>- Build apps.</p>",
+    );
+  });
+
+  it("converts unsupported editor JSON into a saveable job description", () => {
+    expect(cleanJobDescriptionDocument({
+      type: "doc",
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "Keep me", marks: [{ type: "bold" }, { type: "strike" }, { type: "link", attrs: { href: "javascript:alert(1)" } }] }] },
+        { type: "blockquote", content: [{ type: "text", text: "Unsupported block stays readable" }] },
+        { type: "heading", attrs: { level: 9 }, content: [{ type: "text", text: "Bad heading level" }] },
+      ],
+    })).toEqual({
+      type: "doc",
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "Keep me", marks: [{ type: "bold" }] }] },
+        { type: "paragraph", content: [{ type: "text", text: "Unsupported block stays readable" }] },
+        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Bad heading level" }] },
+      ],
+    });
   });
 });

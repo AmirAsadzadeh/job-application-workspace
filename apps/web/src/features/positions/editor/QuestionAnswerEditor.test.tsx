@@ -26,4 +26,11 @@ describe("PositionQuestionAnswerEditor", () => {
     expect(screen.getByLabelText("Code language")).toBeEnabled();
     expect(screen.getByLabelText("Code language").querySelectorAll("option")).toHaveLength(9);
   });
+
+  it("calls the save shortcut handler on Cmd+S inside the answer editor", async () => {
+    const onModSave = vi.fn();
+    render(<PositionQuestionAnswerEditor value={{ type: "doc", content: [{ type: "paragraph" }] }} onChange={vi.fn()} onModSave={onModSave} />);
+    fireEvent.keyDown(await screen.findByRole("textbox", { name: "Answer" }), { key: "s", metaKey: true });
+    expect(onModSave).toHaveBeenCalledTimes(1);
+  });
 });

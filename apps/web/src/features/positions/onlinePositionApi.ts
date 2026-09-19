@@ -2,12 +2,14 @@ import {
   ListViewPreferenceSchema,
   PositionSchema,
   PositionSummarySchema,
+  ReadinessArticleSchema,
   ReferenceDataSchema,
   type CreatePositionInput,
   type ListViewPreference,
   type PositionDetailsUpdate,
   type PositionQuestionInput,
   type PositionStatus,
+  type ReadinessArticleInput,
   type ReadingItemInput,
   type ReorderPositionInput,
 } from "@workspace/domain/positionSchema";
@@ -81,7 +83,14 @@ export function createOnlinePositionApi() {
   }
 
   async function updatePosition(id: string, update: PositionDetailsUpdate) {
-    return PositionSchema.parse((await request(`/api/positions/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(update) })).position);
+    const logo = update.companyLogo;
+    const initial = logo?.kind === "upload" ? { ...update, companyLogo: { kind: "none" as const } } : update;
+    const body = await request(`/api/positions/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(initial) });
+    const position = PositionSchema.parse(body.position);
+    if (logo?.kind !== "upload") return position;
+    const bytes = Uint8Array.from(atob(logo.dataBase64), (character) => character.charCodeAt(0));
+    await request(`/api/positions/${encodeURIComponent(id)}/company-logo`, { method: "PUT", headers: { "content-type": logo.mediaType, "x-file-name": encodeURIComponent(logo.fileName) }, body: bytes });
+    return getPosition(id);
   }
 
   async function createPosition(input: CreatePositionInput) {
@@ -106,6 +115,26 @@ export function createOnlinePositionApi() {
   const createReading = (positionId: string, input: ReadingItemInput) => mutateNested(positionId, "readiness/readings", "POST", input);
   const updateReading = (positionId: string, readingId: string, input: ReadingItemInput) => mutateNested(positionId, `readiness/readings/${encodeURIComponent(readingId)}`, "PATCH", input);
   const deleteReading = (positionId: string, readingId: string) => mutateNested(positionId, `readiness/readings/${encodeURIComponent(readingId)}`, "DELETE");
+
+  async function listReadinessArticles() {
+    const body = await request("/api/readiness/articles");
+    return ReadinessArticleSchema.array().parse(body.articles);
+  }
+
+  async function createReadinessArticle(input: ReadinessArticleInput) {
+    const body = await request("/api/readiness/articles", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+    return ReadinessArticleSchema.array().parse(body.articles);
+  }
+
+  async function updateReadinessArticle(articleId: string, input: ReadinessArticleInput) {
+    const body = await request(`/api/readiness/articles/${encodeURIComponent(articleId)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+    return ReadinessArticleSchema.array().parse(body.articles);
+  }
+
+  async function deleteReadinessArticle(articleId: string) {
+    const body = await request(`/api/readiness/articles/${encodeURIComponent(articleId)}`, { method: "DELETE" });
+    return ReadinessArticleSchema.array().parse(body.articles);
+  }
 
   async function uploadResume(positionId: string, file: File) {
     await request(`/api/positions/${encodeURIComponent(positionId)}/application/resume`, { method: "PUT", headers: { "content-type": file.type, "x-file-name": encodeURIComponent(file.name) }, body: file });
@@ -133,7 +162,7 @@ export function createOnlinePositionApi() {
     return { blob: await response.blob(), fileName };
   }
 
-  return { listPositions, updateListView, reorderPosition, getPosition, getReferenceData, updatePosition, createPosition, createQuestion, updateQuestion, deleteQuestion, createReading, updateReading, deleteReading, uploadResume, getResumeOpenUrl, checkResumeAvailability, removeResume, exportWorkspace, refreshRevision };
+  return { listPositions, updateListView, reorderPosition, getPosition, getReferenceData, updatePosition, createPosition, createQuestion, updateQuestion, deleteQuestion, createReading, updateReading, deleteReading, listReadinessArticles, createReadinessArticle, updateReadinessArticle, deleteReadinessArticle, uploadResume, getResumeOpenUrl, checkResumeAvailability, removeResume, exportWorkspace, refreshRevision };
 }
 
 export const onlinePositionApi = createOnlinePositionApi();

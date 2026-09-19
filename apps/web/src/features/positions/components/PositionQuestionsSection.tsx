@@ -59,6 +59,7 @@ export function PositionQuestionsSection({ position, onPositionChange, onDirtyCh
   };
 
   const save = async () => {
+    if (state === "saving" || state === "deleting") return;
     const candidate = { ...draft, customCategory: draft.category === "other" ? draft.customCategory : null };
     const parsed = PositionQuestionInputSchema.safeParse(candidate);
     if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Check the question."); titleRef.current?.focus(); return; }
@@ -85,7 +86,7 @@ export function PositionQuestionsSection({ position, onPositionChange, onDirtyCh
       {draft.category === "other" && <label>Custom category<input value={draft.customCategory ?? ""} onChange={(event) => { setDraft({ ...draft, customCategory: event.target.value || null }); setError(""); }} /></label>}
     </div>
     <label className="answer-label">Answer <span className="optional-label">Optional</span></label>
-    <PositionQuestionAnswerEditor value={draft.answer} onChange={(answer) => setDraft((current) => ({ ...current, answer }))} />
+    <PositionQuestionAnswerEditor value={draft.answer} onChange={(answer) => setDraft((current) => ({ ...current, answer }))} onModSave={() => void save()} />
     {error && <p className="field-error" role="alert">{error}</p>}
     <div className="preparation-editor-actions">
       {activeId !== "new" && <button className="secondary-button danger-button" type="button" onClick={() => void remove()} disabled={state === "saving" || state === "deleting"}><Trash2 size={14} /> Delete</button>}

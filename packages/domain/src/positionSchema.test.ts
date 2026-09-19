@@ -6,6 +6,7 @@ import {
   DATA_VERSION,
   JobPlatformLinkSchema,
   ListViewPreferenceSchema,
+  PositionDetailsUpdateSchema,
   PositionQuestionInputSchema,
   QuestionAnswerDocumentSchema,
   ReadingItemInputSchema,
@@ -112,6 +113,24 @@ describe("position schema version 6", () => {
     expect(CreatePositionInputSchema.safeParse({ ...common, companyLogo: { kind: "upload", fileName: "logo.png", mediaType: "image/png", dataBase64: oversized } }).success).toBe(false);
   });
 
+  it("validates editable company logos on position updates", () => {
+    const update = {
+      companyLogo: { kind: "existing" as const, logoPath: "/company-logos/acme.svg" },
+      status: "applied" as const,
+      departmentId: null,
+      teamId: null,
+      locationId: null,
+      hiringManager: { name: "", phone: "", position: "" },
+      jobPlatformLinks: [],
+      careerPageUrl: null,
+      careerPageApplicationStatus: null,
+      careerPageApplicationDate: null,
+      description: { type: "doc" as const, content: [{ type: "paragraph" as const }] },
+    };
+    expect(PositionDetailsUpdateSchema.safeParse(update).success).toBe(true);
+    expect(PositionDetailsUpdateSchema.safeParse({ ...update, companyLogo: { kind: "remote", url: "ftp://example.test/logo.png" } }).success).toBe(false);
+  });
+
   it("migrates version 3 without changing records or sequence", () => {
     const positions = ["p1", "p2"].map((id) => ({
       ...legacyPosition,
@@ -126,6 +145,7 @@ describe("position schema version 6", () => {
     expect(migrated).toEqual({
       version: 6,
       listView: { mode: "manual", column: null, direction: null },
+      readinessArticles: [],
       positions: versionThree.positions.map((position) => ({
         ...position,
         status: "applied",
@@ -267,6 +287,7 @@ describe("position schema version 6", () => {
     expect(migrated).toEqual({
       version: 6,
       listView: versionFive.listView,
+      readinessArticles: [],
       positions: versionFive.positions.map((position) => ({ ...position, questions: [], readingItems: [], submittedResume: null })),
     });
   });

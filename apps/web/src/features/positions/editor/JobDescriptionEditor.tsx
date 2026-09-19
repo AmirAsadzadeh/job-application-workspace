@@ -1,30 +1,123 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Bold, Heading1, Heading2, Heading3, Italic, Link, List, ListOrdered, Unlink } from "lucide-react";
-import type { RichTextDocument } from "../positionTypes";
+import { useRef } from "react";
+import type { RichTextDocument, RichTextMark } from "../positionTypes";
+
+type RichTextBlock = RichTextDocument["content"][number];
+type RichTextInline = NonNullable<Extract<RichTextBlock, { type: "paragraph" }>["content"]>[number];
 
 type Props = {
   value: RichTextDocument;
   onChange: (value: RichTextDocument) => void;
+  onModSave?: () => void;
 };
 
-function cleanDocument(value: unknown): RichTextDocument {
-  const cleanNode = (node: any): any => {
-    const cleaned: any = { type: node.type };
-    if (typeof node.text === "string") cleaned.text = node.text;
-    if (node.type === "heading") cleaned.attrs = { level: node.attrs.level };
-    if (Array.isArray(node.marks) && node.marks.length) {
-      cleaned.marks = node.marks.map((mark: any) => mark.type === "link"
-        ? { type: "link", attrs: { href: mark.attrs.href } }
-        : { type: mark.type });
-    }
-    if (Array.isArray(node.content) && node.content.length) cleaned.content = node.content.map(cleanNode);
-    return cleaned;
-  };
-  return cleanNode(value);
+function decodeHtmlEntities(value: string) {
+  const parser = typeof document === "undefined" ? null : document.createElement("textarea");
+  if (!parser) {
+    return value.replace(/&#x([\da-f]+);/gi, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
+      .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 10)))
+      .replace(/&nbsp;/gi, " ");
+  }
+  parser.innerHTML = value;
+  return parser.value;
 }
 
-export function JobDescriptionEditor({ value, onChange }: Props) {
+export function normalizeJobDescriptionPaste(value: string) {
+  return decodeHtmlEntities(value)
+    .replace(/[\u00a0\u202f]/g, " ")
+    .replace(/[\u200b-\u200d\ufeff]/g, "")
+    .replace(/[ \t]*\\[ \t]*(?=\r?\n|$)/g, "")
+    .replace(/[ \t]+$/gm, "")
+    .replace(/^[ \t]+/gm, "")
+    .replace(/\\-/g, "-")
+    .replace(/\*\* +/g, "**")
+    .replace(/ +\*\*/g, "**")
+    .replace(/[ \t]{2,}/g, " ");
+}
+
+export function normalizeJobDescriptionPasteHtml(value: string) {
+  if (typeof document === "undefined") return normalizeJobDescriptionPaste(value);
+  const template = document.createElement("template");
+  template.innerHTML = value;
+  template.content.querySelectorAll("script, style").forEach((node) => node.remove());
+  const walker = document.createTreeWalker(template.content, NodeFilter.SHOW_TEXT);
+  const nodes: Text[] = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+  for (const node of nodes) {
+    node.textContent = normalizeJobDescriptionPaste(node.textContent ?? "");
+  }
+  return template.innerHTML;
+}
+
+function isSafeLink(href: unknown): href is string {
+  if (typeof href !== "string") return false;
+  try {
+    const protocol = new URL(href.trim()).protocol;
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function cleanMarks(marks: unknown): RichTextMark[] | undefined {
+  if (!Array.isArray(marks)) return undefined;
+  const cleaned: RichTextMark[] = [];
+  for (const mark of marks as any[]) {
+    if (mark?.type === "bold" && !cleaned.some((item) => item.type === "bold")) cleaned.push({ type: "bold" });
+    if (mark?.type === "italic" && !cleaned.some((item) => item.type === "italic")) cleaned.push({ type: "italic" });
+    if (mark?.type === "link" && isSafeLink(mark.attrs?.href) && !cleaned.some((item) => item.type === "link" && item.attrs.href === mark.attrs.href.trim())) {
+      cleaned.push({ type: "link", attrs: { href: mark.attrs.href.trim() } });
+    }
+  }
+  return cleaned.length ? cleaned : undefined;
+}
+
+function cleanInline(node: any): RichTextInline[] {
+  if (!node || typeof node !== "object") return [];
+  if (node.type === "text" && typeof node.text === "string") {
+    const marks = cleanMarks(node.marks);
+    return [{ type: "text", text: node.text, ...(marks ? { marks } : {}) }];
+  }
+  if (node.type === "hardBreak") return [{ type: "hardBreak" }];
+  if (typeof node.text === "string") return [{ type: "text", text: node.text }];
+  if (Array.isArray(node.content)) return node.content.flatMap(cleanInline);
+  return [];
+}
+
+function cleanParagraph(node: any): RichTextBlock {
+  const content = Array.isArray(node?.content) ? node.content.flatMap(cleanInline) : [];
+  return content.length ? { type: "paragraph", content } : { type: "paragraph" };
+}
+
+function cleanBlock(node: any): RichTextBlock {
+  if (!node || typeof node !== "object") return { type: "paragraph" };
+  if (node.type === "heading") {
+    const level = node.attrs?.level === 1 || node.attrs?.level === 2 || node.attrs?.level === 3 ? node.attrs.level : 2;
+    const content = Array.isArray(node.content) ? node.content.flatMap(cleanInline) : [];
+    return content.length ? { type: "heading", attrs: { level }, content } : { type: "heading", attrs: { level } };
+  }
+  if (node.type === "bulletList" || node.type === "orderedList") {
+    const items: Extract<RichTextBlock, { type: "bulletList" | "orderedList" }>["content"] = Array.isArray(node.content) ? node.content.map((item: any) => ({
+      type: "listItem" as const,
+      content: Array.isArray(item?.content) ? item.content.map(cleanBlock) : [{ type: "paragraph" as const }],
+    })).filter((item: { content: RichTextBlock[] }) => item.content.length) : [];
+    return items.length ? { type: node.type, content: items } : { type: "paragraph" };
+  }
+  if (node.type === "paragraph") return cleanParagraph(node);
+  return cleanParagraph(node);
+}
+
+export function cleanJobDescriptionDocument(value: unknown): RichTextDocument {
+  const root = value as any;
+  const content = Array.isArray(root?.content) ? root.content.map(cleanBlock) : [];
+  return { type: "doc", content: content.length ? content : [{ type: "paragraph" }] };
+}
+
+export function JobDescriptionEditor({ value, onChange, onModSave }: Props) {
+  const modSaveRef = useRef(onModSave);
+  modSaveRef.current = onModSave;
   const editor = useEditor({
     immediatelyRender: false,
     content: value,
@@ -40,13 +133,25 @@ export function JobDescriptionEditor({ value, onChange }: Props) {
         link: { openOnClick: false, autolink: true, defaultProtocol: "https" },
       }),
     ],
-    onUpdate: ({ editor: currentEditor }) => onChange(cleanDocument(currentEditor.getJSON())),
+    onUpdate: ({ editor: currentEditor }: { editor: { getJSON: () => unknown } }) => onChange(cleanJobDescriptionDocument(currentEditor.getJSON())),
     editorProps: {
+      handleKeyDown: (_view: unknown, event: KeyboardEvent) => {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "s") {
+          if (!modSaveRef.current) return false;
+          event.preventDefault();
+          modSaveRef.current();
+          return true;
+        }
+        return false;
+      },
+      transformPastedText: normalizeJobDescriptionPaste,
+      transformPastedHTML: normalizeJobDescriptionPasteHtml,
       attributes: {
         class: "description-editor-content",
         role: "textbox",
         "aria-label": "Job description",
         "aria-multiline": "true",
+        dir: "auto",
       },
     },
   });

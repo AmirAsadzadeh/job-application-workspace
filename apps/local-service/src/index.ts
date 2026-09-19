@@ -2,7 +2,7 @@ import { createReadStream } from "node:fs";
 import { rm, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
-import { CreatePositionInputSchema, ListViewPreferenceSchema, PositionDetailsUpdateSchema, PositionQuestionInputSchema, PositionStatusSchema, ReadingItemInputSchema, ReorderPositionInputSchema } from "@workspace/domain/positionSchema";
+import { CreatePositionInputSchema, ListViewPreferenceSchema, PositionDetailsUpdateSchema, PositionQuestionInputSchema, PositionStatusSchema, ReadinessArticleInputSchema, ReadingItemInputSchema, ReorderPositionInputSchema } from "@workspace/domain/positionSchema";
 import { PositionsRepositoryError, type PositionsRepository } from "./positionsRepository.js";
 import { WorkspacePackageError } from "./workspacePackage.js";
 import { createWorkspaceTransferService, WorkspaceTransferError } from "./workspaceTransfer.js";
@@ -41,7 +41,7 @@ function sendError(response: ServerResponse, error: unknown) {
     return;
   }
   if (error instanceof PositionsRepositoryError) {
-    const status = error.code === "POSITION_NOT_FOUND" || error.code === "QUESTION_NOT_FOUND" || error.code === "READING_NOT_FOUND" || error.code === "RESUME_NOT_FOUND" ? 404 : error.code === "CREATE_INVALID" || error.code === "LIST_VIEW_INVALID" || error.code === "REORDER_INVALID" || error.code === "UPDATE_INVALID" || error.code === "QUESTION_INVALID" || error.code === "READING_INVALID" || error.code === "RESUME_INVALID" || error.code === "DATA_RELATION_INVALID" ? 400 : 500;
+    const status = error.code === "POSITION_NOT_FOUND" || error.code === "QUESTION_NOT_FOUND" || error.code === "READINESS_ARTICLE_NOT_FOUND" || error.code === "READING_NOT_FOUND" || error.code === "RESUME_NOT_FOUND" ? 404 : error.code === "CREATE_INVALID" || error.code === "LIST_VIEW_INVALID" || error.code === "REORDER_INVALID" || error.code === "UPDATE_INVALID" || error.code === "QUESTION_INVALID" || error.code === "READINESS_ARTICLE_INVALID" || error.code === "READING_INVALID" || error.code === "RESUME_INVALID" || error.code === "DATA_RELATION_INVALID" ? 400 : 500;
     const publicCode = error.code === "WRITE_FAILED" ? "POSITION_WRITE_FAILED" : error.code === "DATA_INVALID" ? "POSITIONS_DATA_INVALID" : error.code === "CREATE_INVALID" ? "POSITION_CREATE_INVALID" : error.code;
     const cause = error.cause as { issues?: Array<{ path: string | PropertyKey[]; message: string }> } | undefined;
     const issues = cause?.issues?.map((issue) => ({
@@ -215,6 +215,37 @@ export function createApiHandler(repository: PositionsRepository, providedTransf
       }
       if (resumeMatch && request.method === "DELETE") {
         sendJson(response, 200, { position: await repository.removeResume(decodeURIComponent(resumeMatch[1])) });
+        return true;
+      }
+      if (request.method === "GET" && url.pathname === "/api/readiness/articles") {
+        sendJson(response, 200, { articles: await repository.listReadinessArticles() });
+        return true;
+      }
+      if (request.method === "POST" && url.pathname === "/api/readiness/articles") {
+        let body: unknown;
+        try { body = await readJson(request); } catch (error) {
+          if (error instanceof RequestTooLargeError) throw error;
+          throw new PositionsRepositoryError("READINESS_ARTICLE_INVALID", "Readiness article request is invalid.", error);
+        }
+        const input = ReadinessArticleInputSchema.safeParse(body);
+        if (!input.success) throw new PositionsRepositoryError("READINESS_ARTICLE_INVALID", "Check the highlighted fields.", input.error);
+        sendJson(response, 201, { articles: await repository.createReadinessArticle(input.data) });
+        return true;
+      }
+      const readinessArticleMatch = url.pathname.match(/^\/api\/readiness\/articles\/([^/]+)$/);
+      if (readinessArticleMatch && request.method === "PATCH") {
+        let body: unknown;
+        try { body = await readJson(request); } catch (error) {
+          if (error instanceof RequestTooLargeError) throw error;
+          throw new PositionsRepositoryError("READINESS_ARTICLE_INVALID", "Readiness article request is invalid.", error);
+        }
+        const input = ReadinessArticleInputSchema.safeParse(body);
+        if (!input.success) throw new PositionsRepositoryError("READINESS_ARTICLE_INVALID", "Check the highlighted fields.", input.error);
+        sendJson(response, 200, { articles: await repository.updateReadinessArticle(decodeURIComponent(readinessArticleMatch[1]), input.data) });
+        return true;
+      }
+      if (readinessArticleMatch && request.method === "DELETE") {
+        sendJson(response, 200, { articles: await repository.deleteReadinessArticle(decodeURIComponent(readinessArticleMatch[1])) });
         return true;
       }
       const match = url.pathname.match(/^\/api\/positions\/([^/]+)$/);

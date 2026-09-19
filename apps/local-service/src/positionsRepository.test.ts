@@ -55,6 +55,25 @@ describe("positions repository", () => {
     expect((await repository.get("p1")).description).toMatchObject({ type: "doc" });
   });
 
+  it("returns a direct job posting URL in position summaries", async () => {
+    const repository = createPositionsRepository({ positionsPath, referenceDataPath });
+    const current = await repository.get("p1");
+    await repository.update("p1", {
+      status: current.status,
+      departmentId: current.departmentId,
+      teamId: current.teamId,
+      locationId: current.locationId,
+      hiringManager: current.hiringManager,
+      jobPlatformLinks: [{ platformName: "LinkedIn", url: "https://linkedin.com/jobs/1", applicationStatus: null, applicationDate: null }],
+      careerPageUrl: "https://acme.test/careers/1",
+      careerPageApplicationStatus: null,
+      careerPageApplicationDate: null,
+      description: current.description,
+    });
+
+    expect((await repository.list({})).positions[0]).toMatchObject({ jobPostingUrl: "https://linkedin.com/jobs/1", careerPageUrl: "https://acme.test/careers/1" });
+  });
+
   it("updates only detail fields and persists a server timestamp", async () => {
     const repository = createPositionsRepository({ positionsPath, referenceDataPath, now: () => new Date("2026-02-01T00:00:00.000Z") });
     const updated = await repository.update("p1", { status: "applied", departmentId: null, teamId: null, locationId: "remote", hiringManager: { name: "", phone: "", position: "" }, jobPlatformLinks: [{ platformName: "LinkedIn", url: "https://linkedin.com/jobs/1", applicationStatus: null, applicationDate: null }], careerPageUrl: "https://acme.test/jobs/1", careerPageApplicationStatus: null, careerPageApplicationDate: null, description: { type: "doc", content: [{ type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Role", marks: [{ type: "bold" }] }] }] } });
@@ -63,6 +82,14 @@ describe("positions repository", () => {
     expect(saved.version).toBe(6);
     expect(saved.positions[0].title).toBe("Frontend Engineer");
     expect(saved.positions[0].jobPlatformLinks).toHaveLength(1);
+  });
+
+  it("updates a position logo without changing the company name", async () => {
+    const repository = createPositionsRepository({ positionsPath, referenceDataPath, now: () => new Date("2026-02-01T00:00:00.000Z") });
+    const updated = await repository.update("p1", { companyLogo: { kind: "remote", url: "https://example.test/logo.png" }, status: "applied", departmentId: "eng", teamId: "web", locationId: "remote", hiringManager: { name: "Mina", phone: "123", position: "Director" }, jobPlatformLinks: [], careerPageUrl: null, careerPageApplicationStatus: null, careerPageApplicationDate: null, description: { type: "doc", content: [{ type: "paragraph" }] } });
+    expect(updated.company).toEqual({ name: "Acme", logoPath: null, logoUrl: "https://example.test/logo.png" });
+    const saved = JSON.parse(await readFile(positionsPath, "utf8"));
+    expect(saved.positions[0].company).toEqual({ name: "Acme", logoPath: null, logoUrl: "https://example.test/logo.png" });
   });
 
   it("rejects invalid relationships, duplicate ids, and unsafe logo paths", async () => {
@@ -307,6 +334,20 @@ describe("positions repository", () => {
     expect(updated.readingItems[1]).toMatchObject({ isRead: true, notes: "Done" });
     await expect(repository.createReading("p1", { title: "Bad", url: "ftp://example.com", notes: "", isRead: false })).rejects.toMatchObject({ code: "READING_INVALID" });
     expect((await repository.deleteReading("p1", created.readingItems[0].id)).readingItems).toHaveLength(1);
+  });
+
+  it("manages top-level readiness articles with free tags and team metadata", async () => {
+    const repository = createPositionsRepository({ positionsPath, referenceDataPath, now: () => new Date("2026-04-02T00:00:00.000Z"), createId: () => "1" });
+    const answer = { type: "doc" as const, content: [{ type: "codeBlock" as const, attrs: { language: "typescript" as const }, content: [{ type: "text" as const, text: "const x = 1;" }] }] };
+
+    const created = await repository.createReadinessArticle({ title: "How do hooks work?", teamId: "web", tags: ["react", "react"], answer });
+    expect(created[0]).toMatchObject({ id: "readiness-1", title: "How do hooks work?", teamId: "web", tags: ["react"] });
+
+    const updated = await repository.updateReadinessArticle("readiness-1", { title: "Hooks", teamId: null, tags: ["frontend"], answer });
+    expect(updated[0]).toMatchObject({ title: "Hooks", teamId: null, tags: ["frontend"] });
+    await expect(repository.updateReadinessArticle("missing", { title: "Nope", teamId: null, tags: [], answer })).rejects.toMatchObject({ code: "READINESS_ARTICLE_NOT_FOUND" });
+    await expect(repository.createReadinessArticle({ title: "", teamId: null, tags: [], answer })).rejects.toMatchObject({ code: "READINESS_ARTICLE_INVALID" });
+    expect(await repository.deleteReadinessArticle("readiness-1")).toEqual([]);
   });
 
   it("imports, opens, replaces, and removes a managed submitted resume", async () => {

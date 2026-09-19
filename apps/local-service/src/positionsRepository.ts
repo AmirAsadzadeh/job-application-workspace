@@ -8,6 +8,8 @@ import {
   MAX_LOGO_BYTES,
   PositionQuestionInputSchema,
   PositionQuestionSchema,
+  ReadinessArticleInputSchema,
+  ReadinessArticleSchema,
   ReadingItemInputSchema,
   ReadingItemSchema,
   SubmittedResumeSchema,
@@ -25,6 +27,7 @@ import {
   type PositionDetailsUpdate,
   type PositionQuestionInput,
   type PositionStatus,
+  type ReadinessArticleInput,
   type ReadingItemInput,
   type SubmittedResume,
   type PositionsDocument,
@@ -39,6 +42,8 @@ export type RepositoryErrorCode =
   | "POSITION_NOT_FOUND"
   | "QUESTION_NOT_FOUND"
   | "QUESTION_INVALID"
+  | "READINESS_ARTICLE_NOT_FOUND"
+  | "READINESS_ARTICLE_INVALID"
   | "READING_NOT_FOUND"
   | "READING_INVALID"
   | "RESUME_NOT_FOUND"
@@ -113,6 +118,9 @@ function validateRelationships(document: PositionsDocument, referenceData: Refer
     }
     if (position.locationId && !locations.has(position.locationId)) throw new PositionsRepositoryError("DATA_RELATION_INVALID", `Unknown location for ${position.id}.`);
   }
+  for (const article of document.readinessArticles) {
+    if (article.teamId && !teamIds.has(article.teamId)) throw new PositionsRepositoryError("DATA_RELATION_INVALID", `Unknown team for readiness article ${article.id}.`);
+  }
 }
 
 function summarizePositions(document: PositionsDocument, referenceData: ReferenceData, filters: { q?: string; status?: PositionStatus }) {
@@ -129,24 +137,27 @@ function summarizePositions(document: PositionsDocument, referenceData: Referenc
       status: position.status,
       workMode: position.workMode,
       seniority: position.seniority,
+      jobPostingUrl: position.jobPlatformLinks.find((link) => link.url.trim())?.url ?? position.careerPageUrl,
+      careerPageUrl: position.careerPageUrl,
+      careerPageApplicationStatus: position.careerPageApplicationStatus,
       updatedAt: position.updatedAt,
     }));
 }
 
-function decodeLogo(logo: Extract<CompanyLogoInput, { kind: "upload" }>) {
+function decodeLogo(logo: Extract<CompanyLogoInput, { kind: "upload" }>, errorCode: "CREATE_INVALID" | "UPDATE_INVALID" = "CREATE_INVALID") {
   const bytes = Buffer.from(logo.dataBase64, "base64");
   if (bytes.byteLength > MAX_LOGO_BYTES) {
-    throw new PositionsRepositoryError("CREATE_INVALID", "Logo must be 2 MB or smaller.");
+    throw new PositionsRepositoryError(errorCode, "Logo must be 2 MB or smaller.");
   }
 
   if (logo.mediaType === "image/png") {
     const valid = bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-    if (!valid) throw new PositionsRepositoryError("CREATE_INVALID", "Logo content does not match PNG format.");
+    if (!valid) throw new PositionsRepositoryError(errorCode, "Logo content does not match PNG format.");
     return { bytes, extension: "png" };
   }
   if (logo.mediaType === "image/jpeg") {
     if (bytes.length < 3 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) {
-      throw new PositionsRepositoryError("CREATE_INVALID", "Logo content does not match JPEG format.");
+      throw new PositionsRepositoryError(errorCode, "Logo content does not match JPEG format.");
     }
     return { bytes, extension: "jpg" };
   }
@@ -155,7 +166,7 @@ function decodeLogo(logo: Extract<CompanyLogoInput, { kind: "upload" }>) {
   const hasSvgRoot = /^\s*(?:<\?xml[^>]*>\s*)?<svg(?:\s|>)/i.test(svg);
   const hasActiveContent = /<!DOCTYPE|<!ENTITY|<script|<foreignObject|\son[a-z]+\s*=|(?:href|src)\s*=\s*["']\s*(?:javascript:|data:text\/html)/i.test(svg);
   if (!hasSvgRoot || hasActiveContent) {
-    throw new PositionsRepositoryError("CREATE_INVALID", "SVG logo contains unsupported content.");
+    throw new PositionsRepositoryError(errorCode, "SVG logo contains unsupported content.");
   }
   return { bytes, extension: "svg" };
 }
@@ -218,7 +229,33 @@ export function createPositionsRepository(options: RepositoryOptions) {
       const currentDate = now();
       const issues = futureDateIssues(parsed.data, currentDate);
       if (issues.length) throw new PositionsRepositoryError("UPDATE_INVALID", "Check the highlighted fields.", { issues });
-      const merged = { ...document.positions[index], ...parsed.data };
+      const { companyLogo, companyName, ...details } = parsed.data;
+      const current = document.positions[index];
+      let company = { ...current.company, name: companyName ?? current.company.name };
+      let stagedLogoPath: string | null = null;
+      let finalLogoPath: string | null = null;
+      let uploadBytes: Buffer | null = null;
+
+      if (!companyLogo) {
+        company = { ...current.company, name: companyName ?? current.company.name };
+      } else if (companyLogo.kind === "existing") {
+        if (current.company.logoPath !== companyLogo.logoPath) {
+          throw new PositionsRepositoryError("UPDATE_INVALID", "Existing logo is not retained by this position.");
+        }
+      } else if (companyLogo.kind === "none") {
+        company = { ...current.company, logoPath: null, logoUrl: null };
+      } else if (companyLogo.kind === "remote") {
+        company = { ...current.company, logoPath: null, logoUrl: companyLogo.url };
+      } else {
+        const { bytes, extension } = decodeLogo(companyLogo, "UPDATE_INVALID");
+        const logoName = `${createId()}.${extension}`;
+        stagedLogoPath = join(logoDirectoryPath, `.${logoName}.tmp`);
+        finalLogoPath = join(logoDirectoryPath, logoName);
+        uploadBytes = bytes;
+        company = { ...current.company, logoPath: `/company-logos/${logoName}`, logoUrl: null };
+      }
+
+      const merged = { ...current, ...details, company };
       const updated = {
         ...merged,
         status: merged.status === "saved" && hasQualifyingChannelActivity(merged) ? "applied" as const : merged.status,
@@ -226,7 +263,18 @@ export function createPositionsRepository(options: RepositoryOptions) {
       };
       const nextDocument = PositionsDocumentSchema.parse({ ...document, positions: document.positions.map((position, positionIndex) => positionIndex === index ? updated : position) });
       validateRelationships(nextDocument, referenceData);
-      await writeDocument(nextDocument);
+      try {
+        if (stagedLogoPath && finalLogoPath && uploadBytes) {
+          await mkdir(logoDirectoryPath, { recursive: true });
+          await writeFile(stagedLogoPath, uploadBytes, { flush: true });
+          await renameFile(stagedLogoPath, finalLogoPath);
+        }
+        await writeDocument(nextDocument);
+      } catch (error) {
+        if (stagedLogoPath) await unlink(stagedLogoPath).catch(() => undefined);
+        if (finalLogoPath) await unlink(finalLogoPath).catch(() => undefined);
+        throw error instanceof PositionsRepositoryError ? error : new PositionsRepositoryError("WRITE_FAILED", "Could not save positions data.", error);
+      }
       return updated;
     });
     writeQueue = operation.catch(() => undefined);
@@ -425,6 +473,57 @@ export function createPositionsRepository(options: RepositoryOptions) {
     return operation;
   }
 
+  async function createReadinessArticle(input: ReadinessArticleInput) {
+    const parsed = ReadinessArticleInputSchema.safeParse(input);
+    if (!parsed.success) throw new PositionsRepositoryError("READINESS_ARTICLE_INVALID", "Readiness article is invalid.", parsed.error);
+    const operation = writeQueue.then(async () => {
+      const { document, referenceData } = await readAll();
+      const timestamp = now().toISOString();
+      let id = `readiness-${createId()}`;
+      while (document.readinessArticles.some((article) => article.id === id)) id = `readiness-${createId()}`;
+      const article = ReadinessArticleSchema.parse({ ...parsed.data, id, createdAt: timestamp, updatedAt: timestamp });
+      const nextDocument = PositionsDocumentSchema.parse({ ...document, readinessArticles: [article, ...document.readinessArticles] });
+      validateRelationships(nextDocument, referenceData);
+      await writeDocument(nextDocument);
+      return nextDocument.readinessArticles;
+    });
+    writeQueue = operation.catch(() => undefined);
+    return operation;
+  }
+
+  async function updateReadinessArticle(articleId: string, input: ReadinessArticleInput) {
+    const parsed = ReadinessArticleInputSchema.safeParse(input);
+    if (!parsed.success) throw new PositionsRepositoryError("READINESS_ARTICLE_INVALID", "Readiness article is invalid.", parsed.error);
+    const operation = writeQueue.then(async () => {
+      const { document, referenceData } = await readAll();
+      const index = document.readinessArticles.findIndex((article) => article.id === articleId);
+      if (index < 0) throw new PositionsRepositoryError("READINESS_ARTICLE_NOT_FOUND", "Readiness article not found.");
+      const timestamp = now().toISOString();
+      const readinessArticles = document.readinessArticles.map((article, articleIndex) => articleIndex === index
+        ? ReadinessArticleSchema.parse({ ...parsed.data, id: article.id, createdAt: article.createdAt, updatedAt: timestamp })
+        : article);
+      const nextDocument = PositionsDocumentSchema.parse({ ...document, readinessArticles });
+      validateRelationships(nextDocument, referenceData);
+      await writeDocument(nextDocument);
+      return nextDocument.readinessArticles;
+    });
+    writeQueue = operation.catch(() => undefined);
+    return operation;
+  }
+
+  async function deleteReadinessArticle(articleId: string) {
+    const operation = writeQueue.then(async () => {
+      const { document } = await readAll();
+      const readinessArticles = document.readinessArticles.filter((article) => article.id !== articleId);
+      if (readinessArticles.length === document.readinessArticles.length) throw new PositionsRepositoryError("READINESS_ARTICLE_NOT_FOUND", "Readiness article not found.");
+      const nextDocument = PositionsDocumentSchema.parse({ ...document, readinessArticles });
+      await writeDocument(nextDocument);
+      return nextDocument.readinessArticles;
+    });
+    writeQueue = operation.catch(() => undefined);
+    return operation;
+  }
+
   async function importResume(positionId: string, originalFileName: string, body: AsyncIterable<Uint8Array>): Promise<Position> {
     if (!originalFileName.trim()) throw new PositionsRepositoryError("RESUME_INVALID", "Resume filename is required.");
     const operation = writeQueue.then(async () => {
@@ -570,6 +669,9 @@ export function createPositionsRepository(options: RepositoryOptions) {
     async getReferenceData() {
       return (await readAll()).referenceData;
     },
+    async listReadinessArticles() {
+      return (await readAll()).document.readinessArticles;
+    },
     create: createPosition,
     update: updatePosition,
     createQuestion,
@@ -578,6 +680,9 @@ export function createPositionsRepository(options: RepositoryOptions) {
     createReading,
     updateReading,
     deleteReading,
+    createReadinessArticle,
+    updateReadinessArticle,
+    deleteReadinessArticle,
     importResume,
     openResume,
     removeResume,

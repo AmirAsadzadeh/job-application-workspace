@@ -1,8 +1,9 @@
 import { useSortable } from "@dnd-kit/react/sortable";
-import { GripVertical } from "lucide-react";
+import { Check, ExternalLink, GripVertical, Minus, X } from "lucide-react";
 import { useState } from "react";
 import type { PositionSummary } from "../positionTypes";
 import { statusLabels, workModeLabels } from "../positionTypes";
+import { openExternalUrl } from "../../../desktop/desktopBridge";
 
 type Props = {
   position: PositionSummary;
@@ -19,6 +20,16 @@ export function PositionRow({ position, onOpen, index = 0, reorderEnabled = fals
   const logoSource = position.company.logoUrl ?? position.company.logoPath;
   const updated = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(position.updatedAt));
   const actionName = `${position.title} at ${position.company.name}`;
+  const directCareerResumeSent = ["applied", "viewed", "contacted"].includes(position.careerPageApplicationStatus ?? "");
+  const careerPageState = position.careerPageUrl ? directCareerResumeSent ? "sent" : "not-sent" : "none";
+  const careerPageLabel = careerPageState === "sent"
+    ? "Career page resume sent"
+    : careerPageState === "not-sent"
+      ? "Career page resume not sent"
+      : "No career page";
+  const CareerIcon = careerPageState === "sent" ? Check : careerPageState === "not-sent" ? X : Minus;
+  const jobPostingUrl = position.jobPostingUrl ?? position.careerPageUrl ?? null;
+  const openPostingLabel = jobPostingUrl ? `Open job posting for ${actionName}` : `No job posting link for ${actionName}`;
 
   return (
     <div ref={ref} className={`position-row-shell${isDragging ? " dragging" : ""}`}>
@@ -34,9 +45,13 @@ export function PositionRow({ position, onOpen, index = 0, reorderEnabled = fals
         </span>
         <span className="truncate position-title">{position.title}</span>
         <span><span className={`status status-${position.status}`}>{statusLabels[position.status]}</span></span>
+        <span className={`career-page-indicator career-page-${careerPageState}`} title={careerPageLabel} aria-label={careerPageLabel}><CareerIcon size={14} aria-hidden="true" /></span>
         <span className="truncate muted">{workModeLabels[position.workMode]}</span>
         <span className="truncate muted">{position.seniority}</span>
         <time className="muted" dateTime={position.updatedAt}>{updated}</time>
+      </button>
+      <button className="icon-button row-open-job-button" type="button" aria-label={openPostingLabel} title={openPostingLabel} disabled={!jobPostingUrl} onClick={() => { if (jobPostingUrl) void openExternalUrl(jobPostingUrl); }}>
+        <ExternalLink size={14} aria-hidden="true" />
       </button>
     </div>
   );
